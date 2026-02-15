@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>Dash Log</title>
+
+  <link rel="manifest" href="./manifest.json" />
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+
+<header class="topbar">
+  <div>
+    <div class="title">Dash Log</div>
+    <div class="subtitle">Track your earnings</div>
+  </div>
+
+  <div class="topbar-actions">
+    <button id="btnExport" class="icon-btn">⬇️</button>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- Weekly Summary Card -->
+  <section class="card">
+    <div class="card-header">
+      <div class="chip chip-green">↗ This Week</div>
+      <div id="weekRange" class="muted"></div>
+    </div>
+
+    <div class="stat-grid">
+      <div>
+        <div class="stat-value green" id="wkEarnings">$0.00</div>
+        <div class="stat-label">Earnings</div>
+      </div>
+
+      <div>
+        <div class="stat-value" id="wkDph">$0.00</div>
+        <div class="stat-label">$/hour</div>
+      </div>
+
+      <div>
+        <div class="stat-value" id="wkSessions">0</div>
+        <div class="stat-label">Sessions</div>
+      </div>
+    </div>
+  </section>
+
+  <h2 class="section-title">Recent Sessions</h2>
+  <div id="sessionsList" class="list"></div>
+
+</main>
+
+<button id="btnAdd" class="fab">＋</button>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
