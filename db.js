@@ -1,6 +1,4 @@
 // db.js — IndexedDB storage for Dash Log
-// Stores: zones, sessions
-// No external libraries.
 
 const DB_NAME = "dashlog-db";
 const DB_VERSION = 1;
@@ -58,9 +56,10 @@ export async function initDB() {
   // seed zones if empty
   const zones = await listZones(db, { activeOnly: false });
   if (zones.length === 0) {
+    await addZone(db, "McKinney");
+    await addZone(db, "Princeton");
     await addZone(db, "Allen");
     await addZone(db, "Plano");
-    await addZone(db, "McKinney");
   }
 
   return db;
