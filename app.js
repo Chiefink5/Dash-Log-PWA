@@ -1,17 +1,12 @@
 import {
   initDB,
   listZones,
-  addZone,
-  updateZone,
   addSession,
   listSessions,
   listAllSessions
 } from "./db.js";
 
-/* ---------- Helpers ---------- */
 const $ = (id) => document.getElementById(id);
-
-const TIME_BLOCKS = ["Breakfast","Brunch","Lunch","Dinner","Late Night"];
 
 function money(n) {
   const v = Number(n || 0);
@@ -32,7 +27,6 @@ function fmtHm(totalMinutes) {
   return `${h}h ${mm}m`;
 }
 function parseDateTimeLocal(str) {
-  // expects "YYYY-MM-DDTHH:mm"
   if (!str) return null;
   const d = new Date(str);
   return isNaN(d.getTime()) ? null : d;
@@ -41,16 +35,21 @@ function toDateTimeLocalValue(d) {
   const pad = (x) => String(x).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-function sundayWeekStartMs(date) {
+
+/**
+ * Week start = MONDAY 00:00 local time
+ */
+function weekStartMs(date) {
   const d = new Date(date);
-  const day = d.getDay(); // Sun=0
+  const day = d.getDay(); // Sun=0, Mon=1...
+  const diff = (day === 0 ? -6 : 1 - day); // shift back to Monday
   d.setHours(0,0,0,0);
-  d.setDate(d.getDate() - day);
+  d.setDate(d.getDate() + diff);
   return d.getTime();
 }
-function weekRangeLabel(weekStartMs) {
-  const s = new Date(weekStartMs);
-  const e = new Date(weekStartMs);
+function weekRangeLabel(weekStartMsVal) {
+  const s = new Date(weekStartMsVal);
+  const e = new Date(weekStartMsVal);
   e.setDate(e.getDate() + 6);
   const fmt = (d) => d.toLocaleDateString(undefined, { month:"short", day:"numeric" });
   return `${fmt(s)} – ${fmt(e)}`;
@@ -79,21 +78,140 @@ function calcDerived(session) {
   return { totalMiles, totalMinutes, waitMinutes, dph, dpm };
 }
 
+function downloadBlob(filename, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
 /* ---------- App State ---------- */
 let db;
 let zones = [];
-let activeWeekStartMs = sundayWeekStartMs(new Date());
+let activeWeekStart = weekStartMs(new Date());
 
-/* ---------- UI Elements ---------- */
+/* ---------- UI ---------- */
 const weekRangeEl = $("weekRange");
 const wkEarnings = $("wkEarnings");
 const wkDph = $("wkDph");
 const wkSessions = $("wkSessions");
 const sessionsListEl = $("sessionsList");
 
-/* ---------- Rendering ---------- */
+const zoneSelect = $("zoneSelect");
+const timeBlock = $("timeBlock");
+const startTime = $("startTime");
+const endTime = $("endTime");
+const profit = $("profit");
+const orders = $("orders");
+const startMiles = $("startMiles");
+const endMiles = $("endMiles");
+const dashMinutes = $("dashMinutes");
+const activeMinutes = $("activeMinutes");
+
+const calcMilesEl = $("calcMiles");
+const calcTimeEl = $("calcTime");
+const calcWaitEl = $("calcWait");
+const calcDphEl = $("calcDph");
+const calcDpmEl = $("calcDpm");
+const warningBox = $("warningBox");
+
+/* ---------- Zones ---------- */
 function zoneNameById(id) {
   return zones.find(z => z.id === id)?.name || "Unknown";
+}
+
+async function refreshZonesDropdown() {
+  zones = await listZones(db, { activeOnly: false });
+  const activeZones = zones.filter(z => z.active === 1).sort((a,b)=>a.name.localeCompare(b.name));
+
+  zoneSelect.innerHTML = "";
+  for (const z of activeZones) {
+    const opt = document.createElement("option");
+    opt.value = String(z.id);
+    opt.textContent = z.name;
+    zoneSelect.appendChild(opt);
+  }
+
+  const lastZone = localStorage.getItem("dashlog_lastZoneId");
+  if (lastZone && activeZones.some(z => String(z.id) === String(lastZone))) {
+    zoneSelect.value = String(lastZone);
+  } else if (activeZones.length) {
+    zoneSelect.value = String(activeZones[0].id);
+  }
+}
+
+/* ---------- Read form + live calcs ---------- */
+function readFormSession() {
+  const st = parseDateTimeLocal(startTime.value) || new Date();
+  const et = parseDateTimeLocal(endTime.value) || new Date(st.getTime() + 2*60*60*1000);
+
+  return {
+    zone_id: Number(zoneSelect.value),
+    time_block: timeBlock.value,
+    start_time: st.getTime(),
+    end_time: et.getTime(),
+    profit: Number(profit.value || 0),
+    start_miles: Number(startMiles.value || 0),
+    end_miles: Number(endMiles.value || 0),
+    orders: Number(orders.value || 0),
+    dash_minutes: Number(dashMinutes.value || 0),
+    active_minutes: Number(activeMinutes.value || 0),
+    week_start: weekStartMs(st)
+  };
+}
+
+function validateSession(session) {
+  const warnings = [];
+  if (session.end_time < session.start_time) warnings.push("End time earlier than start time (treated as crossing midnight).");
+  const d = calcDerived(session);
+  if (d.totalMinutes <= 0) warnings.push("Total time is 0/negative → $/hour will be blank.");
+  if (d.totalMiles <= 0) warnings.push("Miles is 0/negative → $/mile will be blank.");
+  if (session.active_minutes > session.dash_minutes) warnings.push("Active minutes > dash minutes → wait forced to 0.");
+  if (session.end_miles < session.start_miles) warnings.push("End miles < start miles → negative miles.");
+  return warnings;
+}
+
+function updateLiveCalcs() {
+  const s = readFormSession();
+  const d = calcDerived(s);
+
+  calcMilesEl.textContent = (d.totalMiles || 0).toFixed(1);
+  calcTimeEl.textContent = fmtHm(d.totalMinutes);
+  calcWaitEl.textContent = `${d.waitMinutes}m`;
+
+  calcDphEl.textContent = (d.dph == null || !isFinite(d.dph)) ? "—" : `${money2(d.dph)}`;
+  calcDpmEl.textContent = (d.dpm == null || !isFinite(d.dpm)) ? "—" : `${money2(d.dpm)}`;
+
+  const warns = validateSession(s);
+  if (warns.length) {
+    warningBox.textContent = "Warnings: " + warns.join(" ");
+    warningBox.classList.remove("hidden");
+  } else {
+    warningBox.classList.add("hidden");
+    warningBox.textContent = "";
+  }
+}
+
+/* ---------- Weekly + list rendering ---------- */
+async function computeWeekTotals(weekStartVal) {
+  const all = await listAllSessions(db);
+  const weekSessions = all.filter(s => s.week_start === weekStartVal);
+
+  let profitSum = 0;
+  let totalMinutesSum = 0;
+
+  for (const s of weekSessions) {
+    const d = calcDerived(s);
+    profitSum += Number(s.profit || 0);
+    totalMinutesSum += Math.max(0, Number(d.totalMinutes || 0));
+  }
+
+  const dph = totalMinutesSum > 0 ? profitSum / (totalMinutesSum/60) : null;
+  return { sessions: weekSessions.length, profit: profitSum, totalMinutes: totalMinutesSum, dph };
 }
 
 function makeSessionCard(s) {
@@ -103,7 +221,6 @@ function makeSessionCard(s) {
 
   const card = document.createElement("div");
   card.className = "session-card";
-
   card.innerHTML = `
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
       <div>
@@ -137,28 +254,9 @@ function makeSessionCard(s) {
   return card;
 }
 
-async function computeWeekTotals(weekStartMs) {
-  const all = await listAllSessions(db);
-  const weekSessions = all.filter(s => s.week_start === weekStartMs);
-
-  let profit = 0;
-  let totalMinutes = 0;
-
-  for (const s of weekSessions) {
-    const d = calcDerived(s);
-    profit += Number(s.profit || 0);
-    totalMinutes += Math.max(0, Number(d.totalMinutes || 0));
-  }
-
-  const dph = totalMinutes > 0 ? profit / (totalMinutes/60) : null;
-
-  return { sessions: weekSessions.length, profit, totalMinutes, dph };
-}
-
 async function renderWeekHeader() {
-  weekRangeEl.textContent = weekRangeLabel(activeWeekStartMs);
-  const totals = await computeWeekTotals(activeWeekStartMs);
-
+  weekRangeEl.textContent = weekRangeLabel(activeWeekStart);
+  const totals = await computeWeekTotals(activeWeekStart);
   wkEarnings.textContent = money(totals.profit);
   wkDph.textContent = totals.dph == null ? "—" : money(totals.dph);
   wkSessions.textContent = String(totals.sessions);
@@ -172,105 +270,58 @@ async function renderSessionsList() {
     const empty = document.createElement("div");
     empty.style.color = "var(--muted)";
     empty.style.padding = "10px 4px";
-    empty.textContent = "No sessions yet. Tap + to log your first one.";
+    empty.textContent = "No sessions yet. Log your first session above.";
     sessionsListEl.appendChild(empty);
     return;
   }
 
-  for (const s of items) {
-    sessionsListEl.appendChild(makeSessionCard(s));
-  }
+  for (const s of items) sessionsListEl.appendChild(makeSessionCard(s));
 }
 
 async function render() {
-  zones = await listZones(db, { activeOnly: false });
+  await refreshZonesDropdown();
   await renderWeekHeader();
   await renderSessionsList();
 }
 
-/* ---------- Add Session (simple MVP flow) ---------- */
-/*
-  To keep this PWA working from just 6 files and no UI frameworks,
-  we do a fast “prompt-based” logger first.
-  In Part 2 we add Export and a better zone/time-block flow.
-*/
-async function quickLogSession() {
-  const activeZones = (await listZones(db, { activeOnly: true }))
-    .sort((a,b)=>a.name.localeCompare(b.name));
-
-  const zoneName = prompt(
-    `Zone name?\n(Existing: ${activeZones.map(z=>z.name).join(", ")})`,
-    activeZones[0]?.name || "Allen"
-  );
-  if (!zoneName) return;
-
-  // ensure zone exists
-  let zone = zones.find(z => z.name.toLowerCase() === zoneName.trim().toLowerCase());
-  if (!zone) {
-    try { await addZone(db, zoneName.trim()); }
-    catch {}
-    zones = await listZones(db, { activeOnly: false });
-    zone = zones.find(z => z.name.toLowerCase() === zoneName.trim().toLowerCase());
-  }
-  if (!zone) return;
-
-  const timeBlock = prompt(`Time block? (${TIME_BLOCKS.join(", ")})`, "Lunch") || "Lunch";
-
+/* ---------- Actions ---------- */
+function resetForm() {
   const now = new Date();
-  const startStr = prompt("Start time (YYYY-MM-DDTHH:mm)", toDateTimeLocalValue(now));
-  const endDefault = new Date(now); endDefault.setHours(endDefault.getHours() + 2);
-  const endStr = prompt("End time (YYYY-MM-DDTHH:mm)", toDateTimeLocalValue(endDefault));
+  startTime.value = toDateTimeLocalValue(now);
+  const end = new Date(now); end.setHours(end.getHours() + 2);
+  endTime.value = toDateTimeLocalValue(end);
 
-  const st = parseDateTimeLocal(startStr) || now;
-  const et = parseDateTimeLocal(endStr) || endDefault;
+  profit.value = "";
+  orders.value = "";
+  startMiles.value = "";
+  endMiles.value = "";
+  dashMinutes.value = "";
+  activeMinutes.value = "";
 
-  const profit = Number(prompt("Total profit ($)", "0.00") || "0");
-  const startMiles = Number(prompt("Start miles", "0.0") || "0");
-  const endMiles = Number(prompt("End miles", "0.0") || "0");
-  const orders = Number(prompt("Orders", "0") || "0");
-  const dashMinutes = Number(prompt("Dash time minutes", "0") || "0");
-  const activeMinutes = Number(prompt("Active time minutes", "0") || "0");
+  const lastBlock = localStorage.getItem("dashlog_lastTimeBlock");
+  if (lastBlock) timeBlock.value = lastBlock;
 
-  const session = {
-    zone_id: zone.id,
-    time_block: TIME_BLOCKS.includes(timeBlock) ? timeBlock : "Lunch",
-    start_time: st.getTime(),
-    end_time: et.getTime(),
-    profit: profit,
-    start_miles: startMiles,
-    end_miles: endMiles,
-    orders,
-    dash_minutes: dashMinutes,
-    active_minutes: activeMinutes,
-    week_start: sundayWeekStartMs(st)
-  };
-
-  await addSession(db, session);
+  updateLiveCalcs();
 }
 
-/* ---------- Boot Part 1 ---------- */
-async function main() {
-  db = await initDB();
-  await render();
+async function submitSession() {
+  const s = readFormSession();
+  const warnings = validateSession(s);
+  if (warnings.length) {
+    const ok = confirm("Warnings:\n\n- " + warnings.join("\n- ") + "\n\nSave anyway?");
+    if (!ok) return;
+  }
 
-  $("btnAdd").addEventListener("click", async () => {
-    await quickLogSession();
-    await render();
-  });
-}
+  localStorage.setItem("dashlog_lastZoneId", String(s.zone_id));
+  localStorage.setItem("dashlog_lastTimeBlock", s.time_block);
 
-main();
+  await addSession(db, s);
 
-/* ---------- EXPORT CSV ---------- */
-function downloadBlob(filename, blob) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  // keep week header locked to "current week"
+  activeWeekStart = weekStartMs(new Date());
+  resetForm();
+  await renderWeekHeader();
+  await renderSessionsList();
 }
 
 async function exportCsv() {
@@ -290,10 +341,9 @@ async function exportCsv() {
 
   for (const s of all) {
     const d = calcDerived(s);
-
     const zoneName = zoneNameById(s.zone_id);
 
-    const row = [
+    rows.push([
       s.id,
       JSON.stringify(zoneName),
       JSON.stringify(s.time_block),
@@ -311,103 +361,35 @@ async function exportCsv() {
       Math.round(d.waitMinutes || 0),
       d.dph == null ? "" : d.dph.toFixed(2),
       d.dpm == null ? "" : d.dpm.toFixed(2),
-    ].join(",");
-
-    rows.push(row);
+    ].join(","));
   }
 
-  const csv = rows.join("\n");
-  const filename = `dash-log-sessions-${new Date().toISOString().slice(0,10)}.csv`;
-  downloadBlob(filename, new Blob([csv], { type: "text/csv" }));
+  downloadBlob(`dash-log-sessions-${new Date().toISOString().slice(0,10)}.csv`, new Blob([rows.join("\n")], { type:"text/csv" }));
 }
 
-/* ---------- SIMPLE GUARDRAILS ---------- */
-function validateSession(session) {
-  const warnings = [];
-  if (session.end_time < session.start_time) {
-    warnings.push("End time is earlier than start time. (Counts as crossing midnight for calculations.)");
-  }
-  const d = calcDerived(session);
-  if (d.totalMinutes <= 0) warnings.push("Total time is 0 or negative. $/hour will be blank.");
-  if (d.totalMiles <= 0) warnings.push("Miles is 0 or negative. $/mile will be blank.");
-  if (session.active_minutes > session.dash_minutes) warnings.push("Active minutes > dash minutes. Wait forced to 0.");
-  if (session.end_miles < session.start_miles) warnings.push("End miles < start miles. Miles will be negative.");
-  return warnings;
+/* ---------- Boot ---------- */
+async function main() {
+  db = await initDB();
+
+  // defaults
+  await refreshZonesDropdown();
+
+  const lastBlock = localStorage.getItem("dashlog_lastTimeBlock");
+  if (lastBlock) timeBlock.value = lastBlock;
+
+  resetForm();
+  await render();
+
+  // live calcs
+  [zoneSelect, timeBlock, startTime, endTime, profit, orders, startMiles, endMiles, dashMinutes, activeMinutes]
+    .forEach(el => el.addEventListener("input", updateLiveCalcs));
+
+  $("btnReset").addEventListener("click", resetForm);
+  $("btnSubmit").addEventListener("click", submitSession);
+  $("btnExport").addEventListener("click", exportCsv);
 }
 
-/* ---------- WIRE EXPORT BUTTON ---------- */
-(function hookExportButton(){
-  const btn = $("btnExport");
-  if (!btn) return;
-  btn.addEventListener("click", async () => {
-    // quick sanity: if you have no sessions, still export headers
-    await exportCsv();
-  });
-})();
-
-/* ---------- PATCH QUICK LOGGER TO SHOW WARNINGS ---------- */
-// Override quickLogSession from Part 1 with a warning step.
-// This keeps your Part 1 structure but adds “are you sure” if data is odd.
-const _quickLogSessionOriginal = quickLogSession;
-quickLogSession = async function() {
-  // run original prompt-driven flow by temporarily capturing the last added session
-  // Easier: just re-run the prompt flow but validate before saving.
-  const activeZones = (await listZones(db, { activeOnly: true }))
-    .sort((a,b)=>a.name.localeCompare(b.name));
-
-  const zoneName = prompt(
-    `Zone name?\n(Existing: ${activeZones.map(z=>z.name).join(", ")})`,
-    activeZones[0]?.name || "Allen"
-  );
-  if (!zoneName) return;
-
-  let zone = zones.find(z => z.name.toLowerCase() === zoneName.trim().toLowerCase());
-  if (!zone) {
-    try { await addZone(db, zoneName.trim()); } catch {}
-    zones = await listZones(db, { activeOnly: false });
-    zone = zones.find(z => z.name.toLowerCase() === zoneName.trim().toLowerCase());
-  }
-  if (!zone) return;
-
-  const timeBlock = prompt(`Time block? (${TIME_BLOCKS.join(", ")})`, "Lunch") || "Lunch";
-
-  const now = new Date();
-  const startStr = prompt("Start time (YYYY-MM-DDTHH:mm)", toDateTimeLocalValue(now));
-  const endDefault = new Date(now); endDefault.setHours(endDefault.getHours() + 2);
-  const endStr = prompt("End time (YYYY-MM-DDTHH:mm)", toDateTimeLocalValue(endDefault));
-
-  const st = parseDateTimeLocal(startStr) || now;
-  const et = parseDateTimeLocal(endStr) || endDefault;
-
-  const profit = Number(prompt("Total profit ($)", "0.00") || "0");
-  const startMiles = Number(prompt("Start miles", "0.0") || "0");
-  const endMiles = Number(prompt("End miles", "0.0") || "0");
-  const orders = Number(prompt("Orders", "0") || "0");
-  const dashMinutes = Number(prompt("Dash time minutes", "0") || "0");
-  const activeMinutes = Number(prompt("Active time minutes", "0") || "0");
-
-  const session = {
-    zone_id: zone.id,
-    time_block: TIME_BLOCKS.includes(timeBlock) ? timeBlock : "Lunch",
-    start_time: st.getTime(),
-    end_time: et.getTime(),
-    profit: profit,
-    start_miles: startMiles,
-    end_miles: endMiles,
-    orders,
-    dash_minutes: dashMinutes,
-    active_minutes: activeMinutes,
-    week_start: sundayWeekStartMs(st)
-  };
-
-  const warnings = validateSession(session);
-  if (warnings.length) {
-    const ok = confirm("Warnings:\n\n- " + warnings.join("\n- ") + "\n\nSave anyway?");
-    if (!ok) return;
-  }
-
-  await addSession(db, session);
-};
+main();
 
 // Register service worker (PWA)
 if ("serviceWorker" in navigator) {

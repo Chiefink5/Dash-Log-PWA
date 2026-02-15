@@ -15,52 +15,128 @@
 </head>
 
 <body>
-
-<header class="topbar">
-  <div>
-    <div class="title">Dash Log</div>
-    <div class="subtitle">Track your earnings</div>
-  </div>
-
-  <div class="topbar-actions">
-    <button id="btnExport" class="icon-btn">⬇️</button>
-  </div>
-</header>
-
-<main class="container">
-
-  <!-- Weekly Summary Card -->
-  <section class="card">
-    <div class="card-header">
-      <div class="chip chip-green">↗ This Week</div>
-      <div id="weekRange" class="muted"></div>
+  <header class="topbar">
+    <div>
+      <div class="title">Dash Log</div>
+      <div class="subtitle">Track your earnings</div>
     </div>
 
-    <div class="stat-grid">
-      <div>
-        <div class="stat-value green" id="wkEarnings">$0.00</div>
-        <div class="stat-label">Earnings</div>
-      </div>
-
-      <div>
-        <div class="stat-value" id="wkDph">$0.00</div>
-        <div class="stat-label">$/hour</div>
-      </div>
-
-      <div>
-        <div class="stat-value" id="wkSessions">0</div>
-        <div class="stat-label">Sessions</div>
-      </div>
+    <div class="topbar-actions">
+      <button id="btnExport" class="icon-btn" title="Export CSV" aria-label="Export CSV">⬇️</button>
     </div>
-  </section>
+  </header>
 
-  <h2 class="section-title">Recent Sessions</h2>
-  <div id="sessionsList" class="list"></div>
+  <main class="container">
 
-</main>
+    <!-- Weekly Summary -->
+    <section class="card">
+      <div class="card-header">
+        <div class="chip chip-green">↗ This Week</div>
+        <div id="weekRange" class="muted"></div>
+      </div>
 
-<button id="btnAdd" class="fab">＋</button>
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-value green" id="wkEarnings">$0.00</div>
+          <div class="stat-label">Earnings</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="wkDph">—</div>
+          <div class="stat-label">$/hour</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="wkSessions">0</div>
+          <div class="stat-label">Sessions</div>
+        </div>
+      </div>
+    </section>
 
-<script type="module" src="./app.js"></script>
+    <!-- New Session Entry -->
+    <section class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <div class="chip">➕ New Session</div>
+        <div class="muted small">Fill it out → Log</div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Zone</label>
+          <select id="zoneSelect"></select>
+        </div>
+
+        <div class="field">
+          <label>Time Block</label>
+          <select id="timeBlock">
+            <option>Breakfast</option>
+            <option>Brunch</option>
+            <option selected>Lunch</option>
+            <option>Dinner</option>
+            <option>Late Night</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Start Time</label>
+          <input id="startTime" type="datetime-local" />
+        </div>
+
+        <div class="field">
+          <label>End Time</label>
+          <input id="endTime" type="datetime-local" />
+        </div>
+
+        <div class="field">
+          <label>Total Profit ($)</label>
+          <input id="profit" type="number" step="0.01" inputmode="decimal" placeholder="0.00" />
+        </div>
+
+        <div class="field">
+          <label>Orders</label>
+          <input id="orders" type="number" step="1" inputmode="numeric" placeholder="0" />
+        </div>
+
+        <div class="field">
+          <label>Start Miles</label>
+          <input id="startMiles" type="number" step="0.1" inputmode="decimal" placeholder="0.0" />
+        </div>
+
+        <div class="field">
+          <label>End Miles</label>
+          <input id="endMiles" type="number" step="0.1" inputmode="decimal" placeholder="0.0" />
+        </div>
+
+        <div class="field">
+          <label>Dash Time (minutes)</label>
+          <input id="dashMinutes" type="number" step="1" inputmode="numeric" placeholder="0" />
+        </div>
+
+        <div class="field">
+          <label>Active Time (minutes)</label>
+          <input id="activeMinutes" type="number" step="1" inputmode="numeric" placeholder="0" />
+        </div>
+      </div>
+
+      <div class="calc-strip">
+        <div><span class="muted">Miles:</span> <b id="calcMiles">0.0</b></div>
+        <div><span class="muted">Time:</span> <b id="calcTime">0h 0m</b></div>
+        <div><span class="muted">Wait:</span> <b id="calcWait">0m</b></div>
+        <div><span class="muted">$/hr:</span> <b class="green" id="calcDph">—</b></div>
+        <div><span class="muted">$/mi:</span> <b class="blue" id="calcDpm">—</b></div>
+      </div>
+
+      <div id="warningBox" class="warn hidden"></div>
+
+      <div class="row" style="margin-top:12px;">
+        <button class="btn" id="btnReset" type="button">Reset</button>
+        <button class="btn primary grow" id="btnSubmit" type="button">Log Session</button>
+      </div>
+    </section>
+
+    <h2 class="section-title">Recent Sessions</h2>
+    <div id="sessionsList" class="list"></div>
+
+  </main>
+
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
