@@ -1,6 +1,6 @@
 // sw.js — Cache-first PWA Service Worker (simple + reliable)
 
-const CACHE_NAME = "dashlog-cache-v1";
+const CACHE_NAME = "dashlog-cache-v2";
 const ASSETS = [
   "./",
   "./index.html",
