@@ -50,29 +50,32 @@
     </div>
   </section>
 
-  <!-- New Session -->
+  <!-- Zones -->
   <section class="card" style="margin-top:14px;">
-    <div class="section-head">
-      <h2 class="section-h2">New Session</h2>
-      <div id="modeLabel" class="muted small">Creating</div>
+    <div class="card-header">
+      <div class="section-h">Zones</div>
+      <div class="muted small">Add/remove zones</div>
+    </div>
+
+    <div class="row">
+      <input id="zoneNew" placeholder="Add a zone (e.g., Frisco)" />
+      <button class="btn primary" id="btnAddZone" type="button">Add</button>
+    </div>
+
+    <div id="zonesList" class="chips" style="margin-top:12px;"></div>
+  </section>
+
+  <!-- Session Form -->
+  <section class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <div class="section-h" id="formTitle">New Session</div>
+      <div class="muted small" id="formHint">Fill it out → Log</div>
     </div>
 
     <div class="form-grid">
-
-      <div class="field">
-        <label>Date (for backlogs)</label>
-        <input id="sessionDate" type="date" />
-      </div>
-
       <div class="field">
         <label>Zone</label>
         <select id="zoneSelect"></select>
-
-        <div class="inline-row">
-          <input id="zoneNewName" type="text" placeholder="Add zone (ex: Frisco)" />
-          <button id="btnAddZone" class="btn smallbtn" type="button">Add</button>
-        </div>
-        <div class="muted micro">Zones seeded: McKinney, Princeton, Allen, Plano</div>
       </div>
 
       <div class="field">
@@ -84,6 +87,11 @@
           <option>Dinner</option>
           <option>Late Night</option>
         </select>
+      </div>
+
+      <div class="field">
+        <label>Session Date</label>
+        <input id="sessionDate" type="date" />
       </div>
 
       <div class="field">
@@ -118,32 +126,19 @@
 
       <div class="field">
         <label>Dash Time</label>
-        <div class="two">
-          <div>
-            <div class="mini-label">Hours</div>
-            <input id="dashH" type="number" step="1" inputmode="numeric" placeholder="0" />
-          </div>
-          <div>
-            <div class="mini-label">Minutes</div>
-            <input id="dashM" type="number" step="1" inputmode="numeric" placeholder="0" />
-          </div>
+        <div class="dual">
+          <input id="dashH" type="number" step="1" inputmode="numeric" placeholder="hrs" />
+          <input id="dashM" type="number" step="1" inputmode="numeric" placeholder="mins" />
         </div>
       </div>
 
       <div class="field">
         <label>Active Time</label>
-        <div class="two">
-          <div>
-            <div class="mini-label">Hours</div>
-            <input id="activeH" type="number" step="1" inputmode="numeric" placeholder="0" />
-          </div>
-          <div>
-            <div class="mini-label">Minutes</div>
-            <input id="activeM" type="number" step="1" inputmode="numeric" placeholder="0" />
-          </div>
+        <div class="dual">
+          <input id="activeH" type="number" step="1" inputmode="numeric" placeholder="hrs" />
+          <input id="activeM" type="number" step="1" inputmode="numeric" placeholder="mins" />
         </div>
       </div>
-
     </div>
 
     <div id="warningBox" class="warn hidden"></div>

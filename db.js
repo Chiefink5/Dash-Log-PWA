@@ -1,7 +1,5 @@
-// db.js — IndexedDB storage for Dash Log
-
 const DB_NAME = "dashlog-db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -12,7 +10,7 @@ function openDB() {
 
       if (!db.objectStoreNames.contains("zones")) {
         const zones = db.createObjectStore("zones", { keyPath: "id", autoIncrement: true });
-        zones.createIndex("by_name", "name", { unique: true });
+        zones.createIndex("by_name", "name", { unique: false });
         zones.createIndex("by_active", "active", { unique: false });
       }
 
@@ -50,60 +48,58 @@ function runTx(db, storeName, mode, fn) {
   });
 }
 
-export async function initDB() {
-  const db = await openDB();
-
-  // seed zones if empty
-  const zones = await listZones(db, { activeOnly: false });
-  if (zones.length === 0) {
-    await addZone(db, "McKinney");
-    await addZone(db, "Princeton");
-    await addZone(db, "Allen");
-    await addZone(db, "Plano");
-  }
-
-  return db;
-}
-
-/* Zones */
+/* ---------- Zones ---------- */
 export async function listZones(db, { activeOnly = true } = {}) {
   return runTx(db, "zones", "readonly", async (store) => {
     const all = await reqToPromise(store.getAll());
-    const sorted = all.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Back-compat: if old zones didn't have "active", treat as active
+    for (const z of all) {
+      if (typeof z.active !== "number") z.active = 1;
+    }
+
+    const sorted = all.sort((a, b) => String(a.name).localeCompare(String(b.name)));
     return activeOnly ? sorted.filter(z => z.active === 1) : sorted;
   });
 }
 
 export async function addZone(db, name) {
   const zone = { name: name.trim(), active: 1 };
-  return runTx(db, "zones", "readwrite", async (store) => {
-    return reqToPromise(store.add(zone));
-  });
+  return runTx(db, "zones", "readwrite", async (store) => reqToPromise(store.add(zone)));
 }
 
 export async function updateZone(db, zone) {
-  return runTx(db, "zones", "readwrite", async (store) => {
-    return reqToPromise(store.put(zone));
-  });
+  return runTx(db, "zones", "readwrite", async (store) => reqToPromise(store.put(zone)));
 }
 
-/* Sessions */
+async function ensureZone(db, name) {
+  const all = await listZones(db, { activeOnly: false });
+  const found = all.find(z => String(z.name).toLowerCase() === name.toLowerCase());
+  if (found) {
+    if (found.active !== 1) {
+      found.active = 1;
+      await updateZone(db, found);
+    }
+    return;
+  }
+  try { await addZone(db, name); } catch {}
+}
+
+/* ---------- Sessions ---------- */
 export async function addSession(db, session) {
-  return runTx(db, "sessions", "readwrite", async (store) => {
-    return reqToPromise(store.add(session));
-  });
+  return runTx(db, "sessions", "readwrite", async (store) => reqToPromise(store.add(session)));
 }
 
 export async function updateSession(db, session) {
-  return runTx(db, "sessions", "readwrite", async (store) => {
-    return reqToPromise(store.put(session));
-  });
+  return runTx(db, "sessions", "readwrite", async (store) => reqToPromise(store.put(session)));
 }
 
 export async function deleteSession(db, id) {
-  return runTx(db, "sessions", "readwrite", async (store) => {
-    return reqToPromise(store.delete(id));
-  });
+  return runTx(db, "sessions", "readwrite", async (store) => reqToPromise(store.delete(id)));
+}
+
+export async function getSession(db, id) {
+  return runTx(db, "sessions", "readonly", async (store) => reqToPromise(store.get(id)));
 }
 
 export async function listSessions(db, { limit = 50 } = {}) {
@@ -125,7 +121,18 @@ export async function listSessions(db, { limit = 50 } = {}) {
 }
 
 export async function listAllSessions(db) {
-  return runTx(db, "sessions", "readonly", async (store) => {
-    return reqToPromise(store.getAll());
-  });
+  return runTx(db, "sessions", "readonly", async (store) => reqToPromise(store.getAll()));
+}
+
+/* ---------- Init ---------- */
+export async function initDB() {
+  const db = await openDB();
+
+  // Always ensure defaults exist & active
+  await ensureZone(db, "McKinney");
+  await ensureZone(db, "Princeton");
+  await ensureZone(db, "Allen");
+  await ensureZone(db, "Plano");
+
+  return db;
 }

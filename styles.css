@@ -26,7 +26,6 @@ body{
   justify-content:space-between;
   align-items:flex-end;
 }
-
 .title{ font-weight:800; font-size:28px; }
 .subtitle{ margin-top:4px; color:var(--muted); font-size:14px; }
 
@@ -62,6 +61,8 @@ body{
   margin-bottom: 10px;
 }
 
+.section-h{ font-weight: 900; letter-spacing: .2px; }
+
 .chip{
   padding: 8px 12px;
   border-radius: 999px;
@@ -83,21 +84,8 @@ body{
 .blue{ color: var(--blue); }
 .muted{ color: var(--muted); }
 .small{ font-size:12px; }
-.micro{ font-size:11px; margin-top:6px; }
 
 .section-title{ margin-top: 18px; }
-
-.section-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:baseline;
-  margin-bottom: 10px;
-}
-.section-h2{
-  margin:0;
-  font-size: 18px;
-  font-weight: 900;
-}
 
 .list{
   display:flex;
@@ -113,7 +101,7 @@ body{
   padding: 14px;
 }
 
-.row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.row{ display:flex; gap:10px; align-items:center; }
 .grow{ flex:1; }
 
 .btn{
@@ -123,20 +111,12 @@ body{
   background: rgba(12,20,36,.55);
   color: var(--text);
   cursor:pointer;
-  font-weight: 900;
+  font-weight: 800;
 }
 .btn.primary{
   border-color: rgba(46,229,157,.35);
   color: #05130d;
   background: linear-gradient(180deg, rgba(46,229,157,.95), rgba(46,229,157,.75));
-}
-.smallbtn{
-  padding: 10px 12px;
-  font-size: 13px;
-}
-.btn.danger{
-  border-color: rgba(255,90,90,.35);
-  color: #ffd7d7;
 }
 
 .form-grid{
@@ -166,30 +146,12 @@ input, select{
   color: var(--text);
   outline:none;
 }
-select{
-  min-height: 44px; /* fixes tiny dropdown feeling */
-}
-input::placeholder{ color: rgba(154,166,196,.7); }
-input:focus, select:focus{
-  border-color: rgba(90,168,255,.65);
-}
+select{ min-height: 44px; }
 
-.inline-row{
-  display:flex;
-  gap:10px;
-  margin-top:8px;
-}
-.inline-row input{ flex:1; }
-
-.two{
+.dual{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap:10px;
-}
-.mini-label{
-  font-size: 11px;
-  color: rgba(154,166,196,.85);
-  margin-bottom: 6px;
+  gap: 10px;
 }
 
 .warn{
@@ -199,7 +161,49 @@ input:focus, select:focus{
   border: 1px solid rgba(243,201,105,.45);
   background: rgba(243,201,105,.12);
   color: rgba(243,201,105,.95);
-  font-weight: 800;
+  font-weight: 700;
 }
-
 .hidden{ display:none !important; }
+
+.chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.zone-chip{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border:1px solid rgba(28,42,68,.9);
+  background: rgba(12,20,36,.55);
+  font-weight: 800;
+  font-size: 13px;
+}
+.zone-x{
+  border:none;
+  background: transparent;
+  color: rgba(154,166,196,.9);
+  font-weight: 900;
+  cursor:pointer;
+  font-size: 14px;
+}
+.card-actions{
+  display:flex;
+  gap:10px;
+}
+.small-btn{
+  border-radius: 12px;
+  border: 1px solid rgba(28,42,68,.9);
+  padding: 8px 10px;
+  background: rgba(12,20,36,.55);
+  color: var(--text);
+  cursor:pointer;
+  font-weight: 800;
+  font-size: 12px;
+}
+.small-btn.danger{
+  border-color: rgba(255,90,90,.35);
+  color: rgba(255,140,140,.95);
+}
