@@ -7,12 +7,27 @@ import {
   updateSession,
   deleteSession,
   getSession,
-  listSessions,
-  listAllSessions
+  listAllSessions,
+  ensureZoneIdByName,
+  wipeAll
 } from "./db.js";
 
 const $ = (id) => document.getElementById(id);
 
+/* -------------------- Preferences -------------------- */
+const LS_WEBHOOK = "giglog_webhook_url";
+const LS_DRAFT = "giglog_draft_v1";
+
+function setStatus(el, msg) {
+  el.textContent = msg;
+  el.classList.remove("hidden");
+}
+function clearStatus(el) {
+  el.textContent = "";
+  el.classList.add("hidden");
+}
+
+/* -------------------- Formatting -------------------- */
 function money(n) {
   const v = Number(n || 0);
   return v.toLocaleString(undefined, { style: "currency", currency: "USD" });
@@ -31,30 +46,31 @@ function fmtHm(totalMinutes) {
   const mm = m % 60;
   return `${h}h ${mm}m`;
 }
-
+function pad2(x) { return String(x).padStart(2, "0"); }
 function todayStr() {
   const d = new Date();
-  const pad = (x) => String(x).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
 }
 function timeNowStr() {
   const d = new Date();
-  const pad = (x) => String(x).padStart(2, "0");
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 function addHoursToTimeStr(timeHHMM, hours) {
-  const [h, m] = timeHHMM.split(":").map(Number);
-  const d = new Date(2000, 0, 1, h, m);
+  const [h, m] = String(timeHHMM).split(":").map(Number);
+  const d = new Date(2000, 0, 1, h || 0, m || 0);
   d.setHours(d.getHours() + hours);
-  const pad = (x) => String(x).padStart(2, "0");
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 function makeLocalDateTime(dateStr, timeStr) {
   const d = new Date(`${dateStr}T${timeStr}`);
   return isNaN(d.getTime()) ? null : d;
 }
+function sessionDateLabel(startMs) {
+  const d = new Date(startMs);
+  return d.toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric" });
+}
 
-/** Week start = Monday */
+/* -------------------- Week logic (Monday start) -------------------- */
 function weekStartMs(date) {
   const d = new Date(date);
   const day = d.getDay(); // Sun=0, Mon=1...
@@ -67,14 +83,25 @@ function weekRangeLabel(weekStartMsVal) {
   const s = new Date(weekStartMsVal);
   const e = new Date(weekStartMsVal);
   e.setDate(e.getDate() + 6);
-  const fmt = (d) => d.toLocaleDateString(undefined, { month:"short", day:"numeric" });
-  return `${fmt(s)} – ${fmt(e)}`;
+  const fmt = (d) => d.toLocaleDateString(undefined, { month:"2-digit", day:"2-digit", year:"2-digit" });
+  return `${fmt(s)} - ${fmt(e)}`;
 }
-function sessionDateLabel(startMs) {
-  const d = new Date(startMs);
-  return d.toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric" });
+// ISO week number
+function isoWeekNumber(date) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  // Thursday in current week decides the year
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const week1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+}
+function weekLabel(weekStartMsVal) {
+  const s = new Date(weekStartMsVal);
+  const wk = isoWeekNumber(s);
+  return `${weekRangeLabel(weekStartMsVal)} | Week ${wk}`;
 }
 
+/* -------------------- Derived metrics -------------------- */
 function calcDerived(session) {
   const start = session.start_time;
   let endAdj = session.end_time;
@@ -91,7 +118,66 @@ function calcDerived(session) {
   return { totalMiles, totalMinutes, waitMinutes, dph, dpm };
 }
 
-function downloadBlob(filename, blob) {
+/* -------------------- CSV/JSON helpers -------------------- */
+function csvEscape(v) {
+  const s = String(v ?? "");
+  if (s.includes(",") || s.includes("\n") || s.includes('"')) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function buildExportObject(zonesAll, sessionsAll) {
+  return {
+    app: "giglog",
+    version: 1,
+    exported_at: new Date().toISOString(),
+    zones: zonesAll.map(z => ({ name: z.name, active: z.active ?? 1 })),
+    sessions: sessionsAll.map(s => ({
+      // store as durable values (zone_name instead of zone_id)
+      zone_name: zoneNameById(s.zone_id),
+      time_block: s.time_block,
+      start_time: s.start_time,
+      end_time: s.end_time,
+      profit: s.profit,
+      start_miles: s.start_miles,
+      end_miles: s.end_miles,
+      orders: s.orders,
+      dash_minutes: s.dash_minutes,
+      active_minutes: s.active_minutes
+    }))
+  };
+}
+
+function exportCsvString(sessionsAll) {
+  const headers = [
+    "zone","time_block",
+    "start_time","end_time",
+    "profit","start_miles","end_miles",
+    "orders","dash_minutes","active_minutes"
+  ];
+  const rows = [headers.join(",")];
+
+  for (const s of sessionsAll.sort((a,b)=>a.start_time-b.start_time)) {
+    rows.push([
+      csvEscape(zoneNameById(s.zone_id)),
+      csvEscape(s.time_block),
+      csvEscape(new Date(s.start_time).toISOString()),
+      csvEscape(new Date(s.end_time).toISOString()),
+      csvEscape(Number(s.profit || 0).toFixed(2)),
+      csvEscape(Number(s.start_miles || 0).toFixed(1)),
+      csvEscape(Number(s.end_miles || 0).toFixed(1)),
+      csvEscape(Number(s.orders || 0)),
+      csvEscape(Number(s.dash_minutes || 0)),
+      csvEscape(Number(s.active_minutes || 0))
+    ].join(","));
+  }
+
+  return rows.join("\n");
+}
+
+function downloadText(filename, text, mime="text/plain") {
+  const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -99,21 +185,78 @@ function downloadBlob(filename, blob) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-/* ---------- App State ---------- */
+async function shareTextFile(filename, text, mime="text/plain") {
+  const blob = new Blob([text], { type: mime });
+  const file = new File([blob], filename, { type: mime });
+
+  // Prefer file share (works on many iPhones)
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    await navigator.share({ files: [file], title: filename });
+    return true;
+  }
+
+  // Fallback: share text
+  if (navigator.share) {
+    await navigator.share({ title: filename, text });
+    return true;
+  }
+
+  return false;
+}
+
+async function copyToClipboard(text) {
+  await navigator.clipboard.writeText(text);
+}
+
+/* -------------------- Webhook send -------------------- */
+async function sendToWebhook(url, payload, contentType) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": contentType },
+    body: payload
+  });
+  const txt = await res.text().catch(()=> "");
+  if (!res.ok) throw new Error(`Webhook HTTP ${res.status}: ${txt || "No response body"}`);
+  return txt || "OK";
+}
+
+/* -------------------- Draft persistence -------------------- */
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(LS_DRAFT);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+function saveDraft(obj) {
+  localStorage.setItem(LS_DRAFT, JSON.stringify(obj));
+}
+function clearDraft() {
+  localStorage.removeItem(LS_DRAFT);
+}
+
+/* -------------------- App State -------------------- */
 let db;
 let zonesAll = [];
 let zonesActive = [];
+let sessionsAll = [];
 let activeWeekStart = weekStartMs(new Date());
 let editingId = null;
 
-/* ---------- UI ---------- */
+/* -------------------- UI -------------------- */
+const weekChip = $("weekChip");
 const weekRangeEl = $("weekRange");
 const wkEarnings = $("wkEarnings");
 const wkDph = $("wkDph");
 const wkSessions = $("wkSessions");
+
+const weekPicker = $("weekPicker");
+const weekOptions = $("weekOptions");
+const weekPickerClose = $("weekPickerClose");
+
 const sessionsListEl = $("sessionsList");
 
 const zoneNew = $("zoneNew");
@@ -136,14 +279,40 @@ const dashH = $("dashH");
 const dashM = $("dashM");
 const activeH = $("activeH");
 const activeM = $("activeM");
-
 const warningBox = $("warningBox");
-const btnReset = $("btnReset");
-const btnSubmit = $("btnSubmit");
-const btnCancelEdit = $("btnCancelEdit");
-const btnExport = $("btnExport");
 
-/* ---------- Zones ---------- */
+const btnStartDash = $("btnStartDash");
+const btnClearDraft = $("btnClearDraft");
+const btnReset = $("btnReset");
+const btnCancelEdit = $("btnCancelEdit");
+const btnSubmit = $("btnSubmit");
+
+const btnExport = $("btnExport");
+const btnImport = $("btnImport");
+const btnSettings = $("btnSettings");
+
+const fileImport = $("fileImport");
+
+const exportModal = $("exportModal");
+const exportClose = $("exportClose");
+const btnExportCsv = $("btnExportCsv");
+const btnShareCsv = $("btnShareCsv");
+const btnCopyCsv = $("btnCopyCsv");
+const btnExportJson = $("btnExportJson");
+const btnShareJson = $("btnShareJson");
+const btnCopyJson = $("btnCopyJson");
+const btnSendWebhookCsv = $("btnSendWebhookCsv");
+const btnSendWebhookJson = $("btnSendWebhookJson");
+const webhookUrl = $("webhookUrl");
+const exportStatus = $("exportStatus");
+
+const settingsModal = $("settingsModal");
+const settingsClose = $("settingsClose");
+const btnImportNow = $("btnImportNow");
+const btnWipeAll = $("btnWipeAll");
+const settingsStatus = $("settingsStatus");
+
+/* -------------------- Zones -------------------- */
 function zoneNameById(id) {
   return zonesAll.find(z => z.id === id)?.name || "Unknown";
 }
@@ -152,7 +321,7 @@ async function refreshZones() {
   zonesAll = await listZones(db, { activeOnly: false });
   zonesActive = zonesAll.filter(z => z.active === 1).sort((a,b)=>a.name.localeCompare(b.name));
 
-  // dropdown
+  // Dropdown
   zoneSelect.innerHTML = "";
   for (const z of zonesActive) {
     const opt = document.createElement("option");
@@ -161,22 +330,21 @@ async function refreshZones() {
     zoneSelect.appendChild(opt);
   }
 
-  // default select
-  const lastZone = localStorage.getItem("dashlog_lastZoneId");
+  const lastZone = localStorage.getItem("giglog_lastZoneId");
   if (lastZone && zonesActive.some(z => String(z.id) === String(lastZone))) {
     zoneSelect.value = String(lastZone);
   } else if (zonesActive.length) {
     zoneSelect.value = String(zonesActive[0].id);
   }
 
-  // chips
+  // Chips list
   zonesListEl.innerHTML = "";
   for (const z of zonesActive) {
     const chip = document.createElement("div");
     chip.className = "zone-chip";
-    chip.innerHTML = `<span>${z.name}</span><button class="zone-x" aria-label="Remove zone">✕</button>`;
+    chip.innerHTML = `<span>${z.name}</span><button class="zone-x" title="Remove zone" aria-label="Remove zone">✕</button>`;
     chip.querySelector("button").addEventListener("click", async () => {
-      const ok = confirm(`Remove "${z.name}" from dropdown? (Old sessions keep their zone name)`);
+      const ok = confirm(`Remove "${z.name}" from dropdown? (Old sessions keep name)`);
       if (!ok) return;
       z.active = 0;
       await updateZone(db, z);
@@ -190,7 +358,6 @@ async function handleAddZone() {
   const name = (zoneNew.value || "").trim();
   if (!name) return;
 
-  // case-insensitive reuse
   const existing = zonesAll.find(z => String(z.name).toLowerCase() === name.toLowerCase());
   if (existing) {
     if (existing.active !== 1) {
@@ -204,12 +371,11 @@ async function handleAddZone() {
   zoneNew.value = "";
   await refreshZones();
 
-  // select newly added
   const added = zonesAll.find(z => String(z.name).toLowerCase() === name.toLowerCase() && z.active === 1);
   if (added) zoneSelect.value = String(added.id);
 }
 
-/* ---------- Form ---------- */
+/* -------------------- Form helpers -------------------- */
 function toInt(v) {
   const n = Number(v);
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
@@ -250,9 +416,12 @@ function readFormSession() {
 function validateSession(session) {
   const warnings = [];
   const d = calcDerived(session);
-  if (session.active_minutes > session.dash_minutes) warnings.push("Active time > dash time (wait forced to 0).");
+  if (!sessionDate.value) warnings.push("Set a date (supports backlogs).");
+  if (!startTime.value) warnings.push("Start time missing.");
+  if (!endTime.value) warnings.push("End time missing.");
+  if (session.active_minutes > session.dash_minutes) warnings.push("Active > Dash (wait forced to 0).");
   if (session.end_miles < session.start_miles) warnings.push("End miles < start miles (negative miles).");
-  if (d.totalMinutes <= 0) warnings.push("Total time is 0/negative (check start/end).");
+  if (d.totalMinutes <= 0) warnings.push("Total time 0/negative (check start/end).");
   return warnings;
 }
 
@@ -266,10 +435,53 @@ function showWarnings(w) {
   warningBox.textContent = "Warnings: " + w.join(" ");
 }
 
+/* -------------------- Draft: Start Dash -------------------- */
+function draftFromForm() {
+  return {
+    zone_id: Number(zoneSelect.value || 0),
+    time_block: timeBlock.value,
+    sessionDate: sessionDate.value || "",
+    startTime: startTime.value || "",
+    startMiles: startMiles.value || ""
+  };
+}
+function applyDraft(d) {
+  if (!d) return;
+  if (d.sessionDate) sessionDate.value = d.sessionDate;
+  if (d.startTime) startTime.value = d.startTime;
+  if (d.startMiles !== undefined) startMiles.value = d.startMiles;
+  if (d.time_block) timeBlock.value = d.time_block;
+  if (d.zone_id && zonesActive.some(z => z.id === d.zone_id)) zoneSelect.value = String(d.zone_id);
+}
+
+function persistDraftLive() {
+  // Only persist when NOT editing a prior session
+  if (editingId) return;
+  saveDraft(draftFromForm());
+}
+
+function startDash() {
+  if (editingId) return; // don't conflict with editing
+  sessionDate.value = sessionDate.value || todayStr();
+  startTime.value = startTime.value || timeNowStr();
+  // startMiles is user-entered; we don’t auto-set it.
+  saveDraft(draftFromForm());
+  showWarnings([]);
+  alert("Dash started. Start time/miles will persist until you Log Session or Clear Draft.");
+}
+function clearDashDraftOnly() {
+  clearDraft();
+  // keep form values, but user wanted ability to clear; we’ll also clear the 3 key fields.
+  startTime.value = "";
+  startMiles.value = "";
+  showWarnings([]);
+}
+
+/* -------------------- Reset/Edit/Submit -------------------- */
 function resetForm() {
   editingId = null;
   formTitle.textContent = "New Session";
-  formHint.textContent = "Fill it out → Log";
+  formHint.textContent = "Use Start Dash → finish later → Log";
   btnSubmit.textContent = "Log Session";
   btnCancelEdit.style.display = "none";
 
@@ -281,10 +493,14 @@ function resetForm() {
   orders.value = "";
   startMiles.value = "";
   endMiles.value = "";
+
   setTimeTotalMinutes(dashH, dashM, 0);
   setTimeTotalMinutes(activeH, activeM, 0);
 
   showWarnings([]);
+
+  // if there is a draft, re-apply it (this is the persistence behavior)
+  applyDraft(loadDraft());
 }
 
 async function beginEdit(id) {
@@ -292,6 +508,7 @@ async function beginEdit(id) {
   if (!s) return;
 
   editingId = s.id;
+
   formTitle.textContent = "Edit Session";
   formHint.textContent = "Make changes → Update";
   btnSubmit.textContent = "Update Session";
@@ -299,16 +516,14 @@ async function beginEdit(id) {
 
   await refreshZones();
   zoneSelect.value = String(s.zone_id);
-
   timeBlock.value = s.time_block || "Lunch";
 
   const st = new Date(s.start_time);
   const et = new Date(s.end_time);
-  const pad = (x) => String(x).padStart(2, "0");
 
-  sessionDate.value = `${st.getFullYear()}-${pad(st.getMonth()+1)}-${pad(st.getDate())}`;
-  startTime.value = `${pad(st.getHours())}:${pad(st.getMinutes())}`;
-  endTime.value = `${pad(et.getHours())}:${pad(et.getMinutes())}`;
+  sessionDate.value = `${st.getFullYear()}-${pad2(st.getMonth()+1)}-${pad2(st.getDate())}`;
+  startTime.value = `${pad2(st.getHours())}:${pad2(st.getMinutes())}`;
+  endTime.value = `${pad2(et.getHours())}:${pad2(et.getMinutes())}`;
 
   profit.value = String(Number(s.profit || 0));
   orders.value = String(Number(s.orders || 0));
@@ -332,13 +547,21 @@ async function submitSession() {
     if (!ok) return;
   }
 
-  localStorage.setItem("dashlog_lastZoneId", String(s.zone_id));
-  localStorage.setItem("dashlog_lastTimeBlock", s.time_block);
+  localStorage.setItem("giglog_lastZoneId", String(s.zone_id));
+  localStorage.setItem("giglog_lastTimeBlock", s.time_block);
 
-  if (editingId) await updateSession(db, s);
-  else await addSession(db, s);
+  if (editingId) {
+    await updateSession(db, s);
+  } else {
+    await addSession(db, s);
+  }
 
-  activeWeekStart = weekStartMs(new Date());
+  // On successful log: clear draft (user request)
+  clearDraft();
+
+  // refresh state
+  await loadSessions();
+  // keep viewing week as currently selected
   resetForm();
   await render();
 }
@@ -347,13 +570,24 @@ async function removeSession(id) {
   const ok = confirm("Delete this session?");
   if (!ok) return;
   await deleteSession(db, id);
+  await loadSessions();
   await render();
 }
 
-/* ---------- Weekly + list ---------- */
-async function computeWeekTotals(weekStartVal) {
-  const all = await listAllSessions(db);
-  const weekSessions = all.filter(s => s.week_start === weekStartVal);
+/* -------------------- Sessions + Week View -------------------- */
+async function loadSessions() {
+  sessionsAll = await listAllSessions(db);
+}
+
+function getWeeksAvailable() {
+  const set = new Set(sessionsAll.map(s => s.week_start));
+  // Always include current week even if empty
+  set.add(weekStartMs(new Date()));
+  return Array.from(set).sort((a,b)=>b-a);
+}
+
+function computeWeekTotals(weekStartVal) {
+  const weekSessions = sessionsAll.filter(s => s.week_start === weekStartVal);
 
   let profitSum = 0;
   let totalMinutesSum = 0;
@@ -370,6 +604,7 @@ async function computeWeekTotals(weekStartVal) {
 
 function makeSessionCard(s) {
   const d = calcDerived(s);
+
   const dph = (d.dph == null || !isFinite(d.dph)) ? "—/hr" : `${money2(d.dph)}/hr`;
   const dpm = (d.dpm == null || !isFinite(d.dpm)) ? "—/mi" : `${money2(d.dpm)}/mi`;
 
@@ -392,24 +627,24 @@ function makeSessionCard(s) {
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;">
-      <div style="text-align:center;padding:10px;border:1px solid var(--stroke);border-radius:14px;background:rgba(12,20,36,.35);">
-        <div style="font-weight:900;color:var(--blue);">${fmtMiles(d.totalMiles || 0)}</div>
+      <div style="text-align:center;padding:10px;border:1px solid rgba(34,48,34,.9);border-radius:14px;background:rgba(0,0,0,.14);">
+        <div style="font-weight:900;color:var(--gold);">${fmtMiles(d.totalMiles || 0)}</div>
         <div style="color:var(--muted);font-size:12px;margin-top:4px;">Miles</div>
       </div>
-      <div style="text-align:center;padding:10px;border:1px solid var(--stroke);border-radius:14px;background:rgba(12,20,36,.35);">
+      <div style="text-align:center;padding:10px;border:1px solid rgba(34,48,34,.9);border-radius:14px;background:rgba(0,0,0,.14);">
         <div style="font-weight:900;">${fmtHm(d.totalMinutes)}</div>
         <div style="color:var(--muted);font-size:12px;margin-top:4px;">Time</div>
       </div>
-      <div style="text-align:center;padding:10px;border:1px solid var(--stroke);border-radius:14px;background:rgba(12,20,36,.35);">
+      <div style="text-align:center;padding:10px;border:1px solid rgba(34,48,34,.9);border-radius:14px;background:rgba(0,0,0,.14);">
         <div style="font-weight:900;">${s.orders || 0}</div>
         <div style="color:var(--muted);font-size:12px;margin-top:4px;">Orders</div>
       </div>
     </div>
 
     <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px;">
-      <div style="font-weight:800;color:var(--green);">${dph}</div>
-      <div style="font-weight:800;color:var(--blue);">${dpm}</div>
-      <div style="font-weight:700;color:var(--muted);">${d.waitMinutes}m wait</div>
+      <div style="font-weight:900;color:var(--green);">${dph}</div>
+      <div style="font-weight:900;color:var(--gold);">${dpm}</div>
+      <div style="font-weight:800;color:var(--muted);">${d.waitMinutes}m wait</div>
     </div>
   `;
 
@@ -418,105 +653,431 @@ function makeSessionCard(s) {
   return card;
 }
 
-async function renderWeekHeader() {
-  weekRangeEl.textContent = weekRangeLabel(activeWeekStart);
-  const totals = await computeWeekTotals(activeWeekStart);
+function renderWeekPicker() {
+  weekOptions.innerHTML = "";
+  const weeks = getWeeksAvailable();
+
+  for (const ws of weeks) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "week-opt";
+    const label = weekLabel(ws);
+
+    btn.innerHTML = `
+      <div class="wklabel">${ws === weekStartMs(new Date()) ? "This Week" : "Week"}</div>
+      <div class="wkrange">${label}</div>
+    `;
+
+    btn.addEventListener("click", () => {
+      activeWeekStart = ws;
+      weekPicker.classList.add("hidden");
+      // Set chip label to match selection
+      weekChip.textContent = (ws === weekStartMs(new Date())) ? "↗ This Week" : "↗ Selected Week";
+      render();
+    });
+
+    weekOptions.appendChild(btn);
+  }
+}
+
+function renderWeekHeader() {
+  weekRangeEl.textContent = weekLabel(activeWeekStart);
+
+  const totals = computeWeekTotals(activeWeekStart);
   wkEarnings.textContent = money(totals.profit);
   wkDph.textContent = totals.dph == null ? "—" : money(totals.dph);
   wkSessions.textContent = String(totals.sessions);
 }
 
-async function renderSessionsList() {
-  const items = await listSessions(db, { limit: 25 });
+function renderSessionsList() {
   sessionsListEl.innerHTML = "";
 
-  if (!items.length) {
+  const weekItems = sessionsAll
+    .filter(s => s.week_start === activeWeekStart)
+    .sort((a,b)=>b.start_time - a.start_time);
+
+  if (weekItems.length === 0) {
     const empty = document.createElement("div");
     empty.style.color = "var(--muted)";
     empty.style.padding = "10px 4px";
-    empty.textContent = "No sessions yet. Log your first session above.";
+    empty.textContent = "No sessions in this week.";
     sessionsListEl.appendChild(empty);
     return;
   }
-  for (const s of items) sessionsListEl.appendChild(makeSessionCard(s));
+
+  for (const s of weekItems) {
+    sessionsListEl.appendChild(makeSessionCard(s));
+  }
 }
 
 async function render() {
   await refreshZones();
-  await renderWeekHeader();
-  await renderSessionsList();
+  renderWeekPicker();
+  renderWeekHeader();
+  renderSessionsList();
 }
 
-/* ---------- Export ---------- */
-async function exportCsv() {
-  const all = (await listAllSessions(db)).sort((a,b)=>b.start_time - a.start_time);
+/* -------------------- Export UI -------------------- */
+function openExportModal() {
+  webhookUrl.value = localStorage.getItem(LS_WEBHOOK) || "";
+  clearStatus(exportStatus);
+  exportModal.classList.remove("hidden");
+}
+function closeExportModal() {
+  exportModal.classList.add("hidden");
+  clearStatus(exportStatus);
+}
 
-  const headers = [
-    "id","zone","time_block",
-    "start_time","end_time",
-    "profit","start_miles","end_miles",
-    "orders","dash_minutes","active_minutes",
-    "week_start",
-    "total_miles","total_minutes","wait_minutes",
-    "dollars_per_hour","dollars_per_mile"
-  ];
+async function doExport(kind) {
+  // kind: "csv"|"json"
+  await loadSessions();
+  const payloadObj = buildExportObject(zonesAll, sessionsAll);
+  const jsonText = JSON.stringify(payloadObj, null, 2);
+  const csvText = exportCsvString(sessionsAll);
 
-  const rows = [headers.join(",")];
+  const dateTag = new Date().toISOString().slice(0,10);
+  if (kind === "csv") {
+    return {
+      filename: `giglog-${dateTag}.csv`,
+      text: csvText,
+      mime: "text/csv"
+    };
+  }
+  return {
+    filename: `giglog-${dateTag}.json`,
+    text: jsonText,
+    mime: "application/json"
+  };
+}
 
-  for (const s of all) {
-    const d = calcDerived(s);
-    const zoneName = zoneNameById(s.zone_id);
+/* -------------------- Import -------------------- */
+function parseCsvLine(line) {
+  // minimal CSV parser for our export
+  const out = [];
+  let cur = "";
+  let inQ = false;
 
-    rows.push([
-      s.id,
-      JSON.stringify(zoneName),
-      JSON.stringify(s.time_block),
-      new Date(s.start_time).toISOString(),
-      new Date(s.end_time).toISOString(),
-      Number(s.profit || 0).toFixed(2),
-      Number(s.start_miles || 0).toFixed(1),
-      Number(s.end_miles || 0).toFixed(1),
-      Number(s.orders || 0),
-      Number(s.dash_minutes || 0),
-      Number(s.active_minutes || 0),
-      new Date(s.week_start).toISOString(),
-      (d.totalMiles ?? 0).toFixed(1),
-      Math.round(d.totalMinutes || 0),
-      Math.round(d.waitMinutes || 0),
-      d.dph == null ? "" : d.dph.toFixed(2),
-      d.dpm == null ? "" : d.dpm.toFixed(2),
-    ].join(","));
+  for (let i=0; i<line.length; i++) {
+    const ch = line[i];
+    if (inQ) {
+      if (ch === '"' && line[i+1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') inQ = false;
+      else cur += ch;
+    } else {
+      if (ch === '"') inQ = true;
+      else if (ch === ",") { out.push(cur); cur = ""; }
+      else cur += ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+async function importJsonText(text) {
+  const data = JSON.parse(text);
+  if (!data || data.app !== "giglog" || !Array.isArray(data.sessions)) {
+    throw new Error("Invalid JSON export format.");
   }
 
-  downloadBlob(`dash-log-sessions-${new Date().toISOString().slice(0,10)}.csv`,
-    new Blob([rows.join("\n")], { type:"text/csv" })
-  );
+  // Ensure zones exist
+  if (Array.isArray(data.zones)) {
+    for (const z of data.zones) {
+      if (z?.name) await ensureZoneIdByName(db, z.name);
+    }
+  }
+
+  // Import sessions
+  for (const s of data.sessions) {
+    const zoneId = await ensureZoneIdByName(db, s.zone_name || "Unknown");
+
+    const startMs = Number(s.start_time);
+    const endMs = Number(s.end_time);
+
+    const session = {
+      zone_id: zoneId || Number(zoneSelect.value) || 0,
+      time_block: s.time_block || "Lunch",
+      start_time: startMs,
+      end_time: endMs,
+      profit: Number(s.profit || 0),
+      start_miles: Number(s.start_miles || 0),
+      end_miles: Number(s.end_miles || 0),
+      orders: Number(s.orders || 0),
+      dash_minutes: Number(s.dash_minutes || 0),
+      active_minutes: Number(s.active_minutes || 0),
+      week_start: weekStartMs(new Date(startMs))
+    };
+
+    await addSession(db, session);
+  }
 }
 
-/* ---------- Boot ---------- */
+async function importCsvText(text) {
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) throw new Error("CSV looks empty.");
+
+  const headers = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase());
+  const idx = (name) => headers.indexOf(name);
+
+  const iZone = idx("zone");
+  const iBlock = idx("time_block");
+  const iStart = idx("start_time");
+  const iEnd = idx("end_time");
+  const iProfit = idx("profit");
+  const iSM = idx("start_miles");
+  const iEM = idx("end_miles");
+  const iOrders = idx("orders");
+  const iDash = idx("dash_minutes");
+  const iActive = idx("active_minutes");
+
+  if ([iZone,iBlock,iStart,iEnd,iProfit,iSM,iEM,iOrders,iDash,iActive].some(i=>i<0)) {
+    throw new Error("CSV headers don’t match expected export format.");
+  }
+
+  for (let r=1; r<lines.length; r++) {
+    const cols = parseCsvLine(lines[r]);
+    const zoneName = cols[iZone] || "Unknown";
+    const zoneId = await ensureZoneIdByName(db, zoneName);
+
+    const startMs = Date.parse(cols[iStart]);
+    const endMs = Date.parse(cols[iEnd]);
+
+    const session = {
+      zone_id: zoneId || 0,
+      time_block: cols[iBlock] || "Lunch",
+      start_time: startMs,
+      end_time: endMs,
+      profit: Number(cols[iProfit] || 0),
+      start_miles: Number(cols[iSM] || 0),
+      end_miles: Number(cols[iEM] || 0),
+      orders: Number(cols[iOrders] || 0),
+      dash_minutes: Number(cols[iDash] || 0),
+      active_minutes: Number(cols[iActive] || 0),
+      week_start: weekStartMs(new Date(startMs))
+    };
+
+    await addSession(db, session);
+  }
+}
+
+async function handleImportFile(file) {
+  const text = await file.text();
+  const name = file.name.toLowerCase();
+
+  if (name.endsWith(".json")) await importJsonText(text);
+  else if (name.endsWith(".csv")) await importCsvText(text);
+  else throw new Error("Unsupported file type. Use .json or .csv");
+
+  await refreshZones();
+  await loadSessions();
+
+  // Keep current selected week; just rerender
+  await render();
+}
+
+function openImportPicker() {
+  fileImport.value = "";
+  fileImport.click();
+}
+
+/* -------------------- Boot -------------------- */
 async function main() {
   db = await initDB();
-  await render();
 
+  // settings
+  webhookUrl.value = localStorage.getItem(LS_WEBHOOK) || "";
+
+  await refreshZones();
+  await loadSessions();
+
+  // default to current week unless user has selection
+  activeWeekStart = weekStartMs(new Date());
+
+  // load draft if present
+  resetForm();
+
+  // Wire Zones
   btnAddZone.addEventListener("click", handleAddZone);
   zoneNew.addEventListener("keydown", (e) => { if (e.key === "Enter") handleAddZone(); });
 
-  btnReset.addEventListener("click", resetForm);
-  btnSubmit.addEventListener("click", submitSession);
-  btnCancelEdit.addEventListener("click", resetForm);
-  btnExport.addEventListener("click", exportCsv);
+  // Week picker
+  weekChip.addEventListener("click", () => weekPicker.classList.toggle("hidden"));
+  weekPickerClose.addEventListener("click", () => weekPicker.classList.add("hidden"));
 
+  // Draft buttons
+  btnStartDash.addEventListener("click", startDash);
+  btnClearDraft.addEventListener("click", clearDashDraftOnly);
+
+  // Form buttons
+  btnReset.addEventListener("click", resetForm);
+  btnCancelEdit.addEventListener("click", resetForm);
+  btnSubmit.addEventListener("click", submitSession);
+
+  // Live draft persistence on relevant fields
+  [zoneSelect, timeBlock, sessionDate, startTime, startMiles].forEach(el =>
+    el.addEventListener("input", persistDraftLive)
+  );
+
+  // Warnings live
   [
-    sessionDate, startTime, endTime,
-    profit, orders, startMiles, endMiles,
-    dashH, dashM, activeH, activeM
+    sessionDate, startTime, endTime, profit, orders, startMiles, endMiles, dashH, dashM, activeH, activeM
   ].forEach(el => el.addEventListener("input", () => showWarnings(validateSession(readFormSession()))));
 
-  resetForm();
+  // Export modal wiring
+  btnExport.addEventListener("click", openExportModal);
+  exportClose.addEventListener("click", closeExportModal);
+  exportModal.addEventListener("click", (e) => { if (e.target === exportModal) closeExportModal(); });
+
+  btnExportCsv.addEventListener("click", async () => {
+    try {
+      clearStatus(exportStatus);
+      const ex = await doExport("csv");
+      downloadText(ex.filename, ex.text, ex.mime);
+      setStatus(exportStatus, "CSV download triggered.");
+    } catch (err) {
+      setStatus(exportStatus, `Export failed: ${err.message}`);
+    }
+  });
+
+  btnExportJson.addEventListener("click", async () => {
+    try {
+      clearStatus(exportStatus);
+      const ex = await doExport("json");
+      downloadText(ex.filename, ex.text, ex.mime);
+      setStatus(exportStatus, "JSON download triggered.");
+    } catch (err) {
+      setStatus(exportStatus, `Export failed: ${err.message}`);
+    }
+  });
+
+  btnShareCsv.addEventListener("click", async () => {
+    try {
+      clearStatus(exportStatus);
+      const ex = await doExport("csv");
+      const ok = await shareTextFile(ex.filename, ex.text, ex.mime);
+      setStatus(exportStatus, ok ? "Share opened." : "Share not supported on this device/browser.");
+    } catch (err) {
+      setStatus(exportStatus, `Share failed: ${err.message}`);
+    }
+  });
+
+  btnShareJson.addEventListener("click", async () => {
+    try {
+      clearStatus(exportStatus);
+      const ex = await doExport("json");
+      const ok = await shareTextFile(ex.filename, ex.text, ex.mime);
+      setStatus(exportStatus, ok ? "Share opened." : "Share not supported on this device/browser.");
+    } catch (err) {
+      setStatus(exportStatus, `Share failed: ${err.message}`);
+    }
+  });
+
+  btnCopyCsv.addEventListener("click", async () => {
+    try {
+      clearStatus(exportStatus);
+      const ex = await doExport("csv");
+      await copyToClipboard(ex.text);
+      setStatus(exportStatus, "CSV copied to clipboard.");
+    } catch (err) {
+      setStatus(exportStatus, `Copy failed: ${err.message}`);
+    }
+  });
+
+  btnCopyJson.addEventListener("click", async () => {
+    try {
+      clearStatus(exportStatus);
+      const ex = await doExport("json");
+      await copyToClipboard(ex.text);
+      setStatus(exportStatus, "JSON copied to clipboard.");
+    } catch (err) {
+      setStatus(exportStatus, `Copy failed: ${err.message}`);
+    }
+  });
+
+  // Webhook send
+  function saveWebhookSetting() {
+    localStorage.setItem(LS_WEBHOOK, webhookUrl.value.trim());
+  }
+  webhookUrl.addEventListener("input", saveWebhookSetting);
+
+  btnSendWebhookCsv.addEventListener("click", async () => {
+    try {
+      clearStatus(exportStatus);
+      const url = webhookUrl.value.trim();
+      if (!url) return setStatus(exportStatus, "Set a webhook URL first.");
+      const ex = await doExport("csv");
+      const resp = await sendToWebhook(url, ex.text, "text/csv");
+      setStatus(exportStatus, `Webhook sent (CSV). Response: ${resp.slice(0,160)}`);
+    } catch (err) {
+      setStatus(exportStatus, `Webhook failed: ${err.message}`);
+    }
+  });
+
+  btnSendWebhookJson.addEventListener("click", async () => {
+    try {
+      clearStatus(exportStatus);
+      const url = webhookUrl.value.trim();
+      if (!url) return setStatus(exportStatus, "Set a webhook URL first.");
+      const ex = await doExport("json");
+      const resp = await sendToWebhook(url, ex.text, "application/json");
+      setStatus(exportStatus, `Webhook sent (JSON). Response: ${resp.slice(0,160)}`);
+    } catch (err) {
+      setStatus(exportStatus, `Webhook failed: ${err.message}`);
+    }
+  });
+
+  // Import
+  btnImport.addEventListener("click", openImportPicker);
+
+  fileImport.addEventListener("change", async () => {
+    const file = fileImport.files?.[0];
+    if (!file) return;
+    try {
+      await handleImportFile(file);
+      alert("Import complete. Weeks/order updated automatically.");
+    } catch (err) {
+      alert(`Import failed: ${err.message}`);
+    }
+  });
+
+  // Settings modal
+  function openSettings() {
+    clearStatus(settingsStatus);
+    settingsModal.classList.remove("hidden");
+  }
+  function closeSettings() {
+    settingsModal.classList.add("hidden");
+    clearStatus(settingsStatus);
+  }
+
+  btnSettings.addEventListener("click", openSettings);
+  settingsClose.addEventListener("click", closeSettings);
+  settingsModal.addEventListener("click", (e) => { if (e.target === settingsModal) closeSettings(); });
+
+  btnImportNow.addEventListener("click", () => {
+    closeSettings();
+    openImportPicker();
+  });
+
+  btnWipeAll.addEventListener("click", async () => {
+    const ok = confirm("Wipe ALL data on this device? (zones + sessions)");
+    if (!ok) return;
+    await wipeAll(db);
+    clearDraft();
+    await refreshZones();
+    await loadSessions();
+    activeWeekStart = weekStartMs(new Date());
+    resetForm();
+    await render();
+    setStatus(settingsStatus, "Wiped. Fresh start.");
+  });
+
+  // Initial render
+  await render();
 }
 
 main();
 
+// Register service worker
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js").catch(console.warn);
 }

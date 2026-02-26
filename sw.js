@@ -1,4 +1,4 @@
-const CACHE_NAME = "dashlog-cache-v4";
+const CACHE_NAME = "giglog-cache-v7";
 const ASSETS = [
   "./",
   "./index.html",

@@ -1,5 +1,8 @@
-const DB_NAME = "dashlog-db";
-const DB_VERSION = 2;
+// db.js — IndexedDB storage for Gig Log (zones + sessions)
+// DB v3 adds a "meta" store for settings + draft (optional), but we also use localStorage.
+
+const DB_NAME = "giglog-db";
+const DB_VERSION = 3;
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -18,6 +21,10 @@ function openDB() {
         const sessions = db.createObjectStore("sessions", { keyPath: "id", autoIncrement: true });
         sessions.createIndex("by_start", "start_time", { unique: false });
         sessions.createIndex("by_week", "week_start", { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains("meta")) {
+        db.createObjectStore("meta", { keyPath: "key" });
       }
     };
 
@@ -53,7 +60,7 @@ export async function listZones(db, { activeOnly = true } = {}) {
   return runTx(db, "zones", "readonly", async (store) => {
     const all = await reqToPromise(store.getAll());
 
-    // Back-compat: if old zones didn't have "active", treat as active
+    // Back-compat: if old zones didn't have active, treat as active.
     for (const z of all) {
       if (typeof z.active !== "number") z.active = 1;
     }
@@ -80,9 +87,9 @@ async function ensureZone(db, name) {
       found.active = 1;
       await updateZone(db, found);
     }
-    return;
+    return found.id;
   }
-  try { await addZone(db, name); } catch {}
+  try { return await addZone(db, name); } catch { return null; }
 }
 
 /* ---------- Sessions ---------- */
@@ -124,15 +131,33 @@ export async function listAllSessions(db) {
   return runTx(db, "sessions", "readonly", async (store) => reqToPromise(store.getAll()));
 }
 
+/* ---------- Meta (optional) ---------- */
+export async function metaGet(db, key) {
+  return runTx(db, "meta", "readonly", async (store) => reqToPromise(store.get(key)));
+}
+export async function metaSet(db, key, value) {
+  return runTx(db, "meta", "readwrite", async (store) => reqToPromise(store.put({ key, value })));
+}
+export async function wipeAll(db) {
+  // Clears zones + sessions + meta
+  await runTx(db, "sessions", "readwrite", async (s) => reqToPromise(s.clear()));
+  await runTx(db, "zones", "readwrite", async (s) => reqToPromise(s.clear()));
+  await runTx(db, "meta", "readwrite", async (s) => reqToPromise(s.clear()));
+}
+
 /* ---------- Init ---------- */
 export async function initDB() {
   const db = await openDB();
 
-  // Always ensure defaults exist & active
+  // Ensure defaults exist & active
   await ensureZone(db, "McKinney");
   await ensureZone(db, "Princeton");
   await ensureZone(db, "Allen");
   await ensureZone(db, "Plano");
 
   return db;
+}
+
+export async function ensureZoneIdByName(db, name) {
+  return ensureZone(db, name);
 }

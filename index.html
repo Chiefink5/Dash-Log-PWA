@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1220" />
-  <title>Dash Log</title>
+  <meta name="theme-color" content="#0b0f0b" />
+  <title>Gig Log</title>
 
   <link rel="manifest" href="./manifest.json" />
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,23 +15,33 @@
 
 <body>
 <header class="topbar">
-  <div>
-    <div class="title">Dash Log</div>
-    <div class="subtitle">Track your earnings</div>
+  <div class="brand">
+    <div class="title">Gig Log</div>
+    <div class="subtitle">Earnings + miles, clean and fast</div>
   </div>
 
   <div class="topbar-actions">
-    <button id="btnExport" class="icon-btn" title="Export CSV" aria-label="Export CSV">⬇️</button>
+    <button id="btnImport" class="icon-btn" title="Import" aria-label="Import">⬆️</button>
+    <button id="btnExport" class="icon-btn" title="Export" aria-label="Export">⬇️</button>
+    <button id="btnSettings" class="icon-btn" title="Settings" aria-label="Settings">⚙️</button>
   </div>
 </header>
 
 <main class="container">
 
   <!-- Weekly Summary -->
-  <section class="card">
+  <section class="card glow">
     <div class="card-header">
-      <div class="chip chip-green">↗ This Week</div>
+      <button id="weekChip" class="chip chip-gold" type="button">↗ This Week</button>
       <div id="weekRange" class="muted"></div>
+    </div>
+
+    <div id="weekPicker" class="dropdown hidden" role="dialog" aria-label="Week picker">
+      <div class="dropdown-head">
+        <div class="dropdown-title">Pick a week</div>
+        <button id="weekPickerClose" class="xbtn" type="button" aria-label="Close">✕</button>
+      </div>
+      <div id="weekOptions" class="dropdown-list"></div>
     </div>
 
     <div class="stat-grid">
@@ -40,7 +50,7 @@
         <div class="stat-label">Earnings</div>
       </div>
       <div class="stat">
-        <div class="stat-value" id="wkDph">—</div>
+        <div class="stat-value gold" id="wkDph">—</div>
         <div class="stat-label">$/hour</div>
       </div>
       <div class="stat">
@@ -59,17 +69,21 @@
 
     <div class="row">
       <input id="zoneNew" placeholder="Add a zone (e.g., Frisco)" />
-      <button class="btn primary" id="btnAddZone" type="button">Add</button>
+      <button class="btn goldbtn" id="btnAddZone" type="button">Add</button>
     </div>
 
     <div id="zonesList" class="chips" style="margin-top:12px;"></div>
+    <div class="muted tiny" style="margin-top:8px;">Removing a zone hides it from the dropdown (old sessions keep their zone name).</div>
   </section>
 
   <!-- Session Form -->
   <section class="card" style="margin-top:14px;">
     <div class="card-header">
-      <div class="section-h" id="formTitle">New Session</div>
-      <div class="muted small" id="formHint">Fill it out → Log</div>
+      <div>
+        <div class="section-h" id="formTitle">New Session</div>
+        <div class="muted small" id="formHint">Use Start Dash → finish later → Log</div>
+      </div>
+      <div class="badge">Gold/Green Mode</div>
     </div>
 
     <div class="form-grid">
@@ -143,17 +157,98 @@
 
     <div id="warningBox" class="warn hidden"></div>
 
-    <div class="row" style="margin-top:12px;">
+    <div class="row" style="margin-top:12px; flex-wrap:wrap;">
+      <button class="btn" id="btnStartDash" type="button">Start Dash</button>
+      <button class="btn" id="btnClearDraft" type="button">Clear Draft</button>
+
+      <span class="spacer"></span>
+
       <button class="btn" id="btnReset" type="button">Reset</button>
       <button class="btn" id="btnCancelEdit" type="button" style="display:none;">Cancel Edit</button>
-      <button class="btn primary grow" id="btnSubmit" type="button">Log Session</button>
+      <button class="btn greenbtn grow" id="btnSubmit" type="button">Log Session</button>
     </div>
   </section>
 
-  <h2 class="section-title">Recent Sessions</h2>
+  <h2 class="section-title">Sessions (Week View)</h2>
   <div id="sessionsList" class="list"></div>
 
 </main>
+
+<!-- Hidden file input for import -->
+<input id="fileImport" type="file" accept=".json,.csv,text/csv,application/json" class="hidden" />
+
+<!-- Modal: Export -->
+<div id="exportModal" class="modal hidden" role="dialog" aria-label="Export">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title">Export</div>
+      <button id="exportClose" class="xbtn" type="button" aria-label="Close">✕</button>
+    </div>
+
+    <div class="muted small" style="margin-bottom:10px;">
+      iPhone PWAs sometimes block “downloads”. Use Share or Copy if Download doesn’t pop.
+    </div>
+
+    <div class="row" style="flex-wrap:wrap;">
+      <button id="btnExportCsv" class="btn goldbtn" type="button">Download CSV</button>
+      <button id="btnShareCsv" class="btn" type="button">Share CSV</button>
+      <button id="btnCopyCsv" class="btn" type="button">Copy CSV</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row" style="flex-wrap:wrap;">
+      <button id="btnExportJson" class="btn goldbtn" type="button">Download JSON</button>
+      <button id="btnShareJson" class="btn" type="button">Share JSON</button>
+      <button id="btnCopyJson" class="btn" type="button">Copy JSON</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field">
+      <label>Webhook URL (optional)</label>
+      <input id="webhookUrl" placeholder="https://example.com/webhook" />
+      <div class="muted tiny" style="margin-top:6px;">
+        Note: webhook must allow CORS from your site. If it blocks, we’ll show the error.
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px; flex-wrap:wrap;">
+      <button id="btnSendWebhookCsv" class="btn greenbtn" type="button">Send CSV to Webhook</button>
+      <button id="btnSendWebhookJson" class="btn greenbtn" type="button">Send JSON to Webhook</button>
+    </div>
+
+    <div id="exportStatus" class="status hidden"></div>
+  </div>
+</div>
+
+<!-- Modal: Settings -->
+<div id="settingsModal" class="modal hidden" role="dialog" aria-label="Settings">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title">Settings</div>
+      <button id="settingsClose" class="xbtn" type="button" aria-label="Close">✕</button>
+    </div>
+
+    <div class="field">
+      <label>Week start</label>
+      <div class="muted small">Locked to Monday (matches pay cycle logic).</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row" style="flex-wrap:wrap;">
+      <button id="btnImportNow" class="btn goldbtn" type="button">Import Data</button>
+      <button id="btnWipeAll" class="btn dangerbtn" type="button">Wipe All Data</button>
+    </div>
+
+    <div class="muted tiny" style="margin-top:10px;">
+      Wipe removes zones + sessions from this device only.
+    </div>
+
+    <div id="settingsStatus" class="status hidden"></div>
+  </div>
+</div>
 
 <script type="module" src="./app.js"></script>
 </body>
