@@ -993,24 +993,45 @@ async function main() {
     }
   });
 
-  // Webhook send
-  function saveWebhookSetting() {
-    localStorage.setItem(LS_WEBHOOK, webhookUrl.value.trim());
-  }
-  webhookUrl.addEventListener("input", saveWebhookSetting);
+  // Webhook sendasync function sendDiscordFile(url, filename, content, mimeType, message="📎 Gig Log export attached.") {
+  const form = new FormData();
+  form.append("payload_json", JSON.stringify({ content: message }));
+  form.append("file", new Blob([content], { type: mimeType }), filename);
 
-  btnSendWebhookCsv.addEventListener("click", async () => {
-    try {
-      clearStatus(exportStatus);
-      const url = webhookUrl.value.trim();
-      if (!url) return setStatus(exportStatus, "Set a webhook URL first.");
-      const ex = await doExport("csv");
-      const resp = await sendToWebhook(url, ex.text, "text/csv");
-      setStatus(exportStatus, `Webhook sent (CSV). Response: ${resp.slice(0,160)}`);
-    } catch (err) {
-      setStatus(exportStatus, `Webhook failed: ${err.message}`);
-    }
-  });
+  const res = await fetch(url, { method: "POST", body: form });
+  const txt = await res.text().catch(()=> "");
+  if (!res.ok) throw new Error(`Webhook HTTP ${res.status}: ${txt || "No response body"}`);
+  return txt || "OK";
+}
+
+// --- Replace existing webhook button handlers with these ---
+btnSendWebhookCsv.addEventListener("click", async () => {
+  try {
+    clearStatus(exportStatus);
+    const url = webhookUrl.value.trim();
+    if (!url) return setStatus(exportStatus, "Set a Discord webhook URL first.");
+
+    const ex = await doExport("csv");
+    await sendDiscordFile(url, ex.filename, ex.text, "text/csv", "📎 Gig Log CSV export attached.");
+    setStatus(exportStatus, "Discord webhook sent (CSV attached).");
+  } catch (err) {
+    setStatus(exportStatus, `Webhook failed: ${err.message}`);
+  }
+});
+
+btnSendWebhookJson.addEventListener("click", async () => {
+  try {
+    clearStatus(exportStatus);
+    const url = webhookUrl.value.trim();
+    if (!url) return setStatus(exportStatus, "Set a Discord webhook URL first.");
+
+    const ex = await doExport("json");
+    await sendDiscordFile(url, ex.filename, ex.text, "application/json", "📎 Gig Log JSON export attached.");
+    setStatus(exportStatus, "Discord webhook sent (JSON attached).");
+  } catch (err) {
+    setStatus(exportStatus, `Webhook failed: ${err.message}`);
+  }
+});
 
   btnSendWebhookJson.addEventListener("click", async () => {
     try {

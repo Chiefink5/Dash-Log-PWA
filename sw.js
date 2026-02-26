@@ -1,4 +1,5 @@
-const CACHE_NAME = "giglog-cache-v7";
+
+const CACHE_NAME = "giglog-cache-v9";
 const ASSETS = [
   "./",
   "./index.html",
