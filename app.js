@@ -993,7 +993,7 @@ async function main() {
     }
   });
 
-  // Webhook sendasync function sendDiscordFile(url, filename, content, mimeType, message="📎 Gig Log export attached.") {
+async function sendDiscordFile(url, filename, content, mimeType, message="📎 Gig Log export attached.") {
   const form = new FormData();
   form.append("payload_json", JSON.stringify({ content: message }));
   form.append("file", new Blob([content], { type: mimeType }), filename);
@@ -1032,19 +1032,6 @@ btnSendWebhookJson.addEventListener("click", async () => {
     setStatus(exportStatus, `Webhook failed: ${err.message}`);
   }
 });
-
-  btnSendWebhookJson.addEventListener("click", async () => {
-    try {
-      clearStatus(exportStatus);
-      const url = webhookUrl.value.trim();
-      if (!url) return setStatus(exportStatus, "Set a webhook URL first.");
-      const ex = await doExport("json");
-      const resp = await sendToWebhook(url, ex.text, "application/json");
-      setStatus(exportStatus, `Webhook sent (JSON). Response: ${resp.slice(0,160)}`);
-    } catch (err) {
-      setStatus(exportStatus, `Webhook failed: ${err.message}`);
-    }
-  });
 
   // Import
   btnImport.addEventListener("click", openImportPicker);
