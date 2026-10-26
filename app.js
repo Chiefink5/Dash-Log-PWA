@@ -1,3 +1,4 @@
+import {syncDriverData,removeCloudSession} from "./cloud-sync.js";
 import {
   initDB,
   listZones,
@@ -245,6 +246,8 @@ let zonesActive = [];
 let sessionsAll = [];
 let activeWeekStart = weekStartMs(new Date());
 let editingId = null;
+function reportSyncError(e){console.error("Cloud sync failed",e);let el=document.getElementById("cloudSyncStatus");if(el)el.textContent="Cloud sync pending: "+e.message}
+async function syncAndRefresh(){try{await syncDriverData(db);await refreshZones();await loadSessions();await render();const el=document.getElementById("cloudSyncStatus");if(el)el.textContent="Cloud backup synced"}catch(e){reportSyncError(e)}}
 
 /* -------------------- UI -------------------- */
 const weekChip = $("weekChip");
@@ -551,10 +554,15 @@ async function submitSession() {
   localStorage.setItem("giglog_lastTimeBlock", s.time_block);
 
   if (editingId) {
+    const previous=await getSession(db,editingId);
+    s.client_id=previous?.client_id||crypto.randomUUID();
     await updateSession(db, s);
   } else {
+    s.client_id=crypto.randomUUID();
     await addSession(db, s);
   }
+
+  syncDriverData(db,{pull:false}).catch(reportSyncError);
 
   // On successful log: clear draft (user request)
   clearDraft();
@@ -569,6 +577,8 @@ async function submitSession() {
 async function removeSession(id) {
   const ok = confirm("Delete this session?");
   if (!ok) return;
+  const previous=await getSession(db,id);
+  if(previous?.client_id){try{await removeCloudSession(previous.client_id)}catch(e){alert("Could not delete from cloud. "+e.message);return}}
   await deleteSession(db, id);
   await loadSessions();
   await render();
