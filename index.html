@@ -179,6 +179,7 @@
 
 </main>
 
+<div id="supportModal" class="modal hidden" role="dialog" aria-label="Support tickets" aria-modal="true"><div class="modal-card support-dialog"><div class="modal-head"><div class="modal-title">Help &amp; Support</div><button id="supportClose" class="xbtn" type="button" aria-label="Close">Close</button></div><div id="supportStatus" class="muted small" aria-live="polite"></div><div class="support-tabs"><button class="btn goldbtn" id="supportNewTab" type="button">New Report</button><button class="btn" id="supportListTab" type="button">My Tickets</button></div><form id="supportForm" class="support-form"><label>Category<select id="supportCategory" required><option value="bug">Bug / Something broken</option><option value="account">Account / Login</option><option value="data">Data / Missing sessions</option><option value="feature">Feature request</option><option value="other">Other</option></select></label><label>Subject<input id="supportSubject" maxlength="140" minlength="3" required placeholder="Briefly describe the issue"></label><label>What's happening?<textarea id="supportDescription" minlength="10" maxlength="5000" required rows="5" placeholder="What happened, what did you expect, and how can we reproduce it?"></textarea></label><label>Screenshot (optional, max 5 MB)<input id="supportScreenshot" type="file" accept="image/png,image/jpeg,image/webp"></label><button class="btn goldbtn" type="submit">Submit Report</button></form><div id="supportTickets" class="support-ticket-list hidden"></div><div id="supportThread" class="support-thread hidden"></div></div></div>
 <!-- Hidden file input for import -->
 <input id="fileImport" type="file" accept=".json,.csv,text/csv,application/json" class="hidden" />
 
@@ -259,7 +260,7 @@
     <div class="divider"></div>
 
     <div class="field"><label>Data &amp; Account</label><div class="muted small">Back up or restore your sessions.</div></div>
-    <div class="settings-action-grid">
+    <div class="field"><label>Help &amp; Support</label><p class="muted small">Found a bug or need assistance? Send a support ticket and track replies.</p><button id="openSupport" class="btn goldbtn" type="button">Report an Issue / My Tickets</button></div><div class="divider"></div><div class="settings-action-grid">
       <button id="btnImport" class="btn" type="button">Import Data</button>
       <button id="btnExport" class="btn goldbtn" type="button">Export Data</button>
       <button id="accountLogout" class="btn" type="button">Sign Out</button>
