@@ -1,7 +1,7 @@
-import {supabase} from "./auth.js";
+import {supabase} from "/auth.js";
 const main=document.querySelector("main");document.querySelector("header").style.display="none";
 main.innerHTML='<h1>Dash Log · Owner Dashboard</h1><p id="summary">Loading...</p><input id="searchDriver" placeholder="Search email or name" style="padding:12px;width:100%;margin-bottom:15px"><div id="drivers"></div><button id="ownerLogout" class="btn">Sign out</button>';
-document.getElementById("ownerLogout").onclick=async()=>{await supabase.auth.signOut();location.href="./"};
+document.getElementById("ownerLogout").onclick=async()=>{await supabase.auth.signOut();location.href="/"};
 const {data:profiles,error}=await supabase.from("driver_profiles").select("*").order("created_at",{ascending:false});
 const {data:sessions, error:sessionError}=await supabase.from("driver_sessions").select("driver_id,profit,start_time,end_time,orders,start_miles,end_miles");
 if(error||sessionError){document.getElementById("summary").textContent=(error||sessionError).message;throw(error||sessionError)}
