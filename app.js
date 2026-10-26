@@ -1,3 +1,4 @@
+import {supabase} from "./auth.js";
 import {syncDriverData,removeCloudSession} from "./cloud-sync.js";
 import {
   initDB,
@@ -131,7 +132,9 @@ function csvEscape(v) {
 function buildExportObject(zonesAll, sessionsAll) {
   return {
     app: "giglog",
-    version: 1,
+    version: 2,
+    account: { id: window.__dashlogUserId || null, email: window.__dashlogUserEmail || null },
+    export_id: crypto.randomUUID(),
     exported_at: new Date().toISOString(),
     zones: zonesAll.map(z => ({ name: z.name, active: z.active ?? 1 })),
     sessions: sessionsAll.map(s => ({
@@ -152,7 +155,7 @@ function buildExportObject(zonesAll, sessionsAll) {
 
 function exportCsvString(sessionsAll) {
   const headers = [
-    "zone","time_block",
+    "source_account_id","source_account_email","zone","time_block",
     "start_time","end_time",
     "profit","start_miles","end_miles",
     "orders","dash_minutes","active_minutes"
@@ -161,6 +164,8 @@ function exportCsvString(sessionsAll) {
 
   for (const s of sessionsAll.sort((a,b)=>a.start_time-b.start_time)) {
     rows.push([
+      csvEscape(window.__dashlogUserId || ""),
+      csvEscape(window.__dashlogUserEmail || ""),
       csvEscape(zoneNameById(s.zone_id)),
       csvEscape(s.time_block),
       csvEscape(new Date(s.start_time).toISOString()),
@@ -783,12 +788,18 @@ function parseCsvLine(line) {
   return out;
 }
 
+async function recordImportAudit(account,format,count,exportId){
+ const source=account?.id||null;
+ const {error}=await supabase.from("import_audit_events").insert({importer_id:window.__dashlogUserId,claimed_source_id:source,claimed_source_email:account?.email||null,export_id:exportId||null,format,session_count:count,account_mismatch:!!source&&source!==window.__dashlogUserId});
+ if(error)throw new Error("Import audit could not be saved: "+error.message);
+}
 async function importJsonText(text) {
   const data = JSON.parse(text);
   if (!data || data.app !== "giglog" || !Array.isArray(data.sessions)) {
     throw new Error("Invalid JSON export format.");
   }
 
+  await recordImportAudit(data.account,"json",data.sessions.length,data.export_id);
   // Ensure zones exist
   if (Array.isArray(data.zones)) {
     for (const z of data.zones) {
@@ -843,6 +854,8 @@ async function importCsvText(text) {
     throw new Error("CSV headers don’t match expected export format.");
   }
 
+  const first=lines.length>1?parseCsvLine(lines[1]):[];
+  await recordImportAudit({id:idx("source_account_id")>=0?first[idx("source_account_id")]:null,email:idx("source_account_email")>=0?first[idx("source_account_email")]:null},"csv",lines.length-1,null);
   for (let r=1; r<lines.length; r++) {
     const cols = parseCsvLine(lines[r]);
     const zoneName = cols[iZone] || "Unknown";
