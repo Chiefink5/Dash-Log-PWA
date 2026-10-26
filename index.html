@@ -63,24 +63,28 @@
     <div class="timeline-action"><button id="weekChip" class="chip chip-gold" type="button">View Timeline</button></div>
   </section>
 
+  <section id="timelinePage" class="timeline-page hidden" aria-label="Weekly timeline"><div class="timeline-page-header"><button id="timelineBack" class="btn" type="button">← Back to Dashboard</button><h2>Weekly Timeline</h2><p class="muted">Select a week to view its sessions. Ten weeks per page.</p></div><div id="timelineWeeks" class="timeline-weeks"></div><div class="timeline-pagination"><button id="timelinePrev" class="btn" type="button">Previous</button><span id="timelinePageCount"></span><button id="timelineNext" class="btn" type="button">Next</button></div></section>
+
   <!-- Zones -->
-  <section class="card" style="margin-top:14px;">
+  <section class="card" id="zonesSection" style="margin-top:14px;">
     <div class="card-header">
       <div class="section-h">Zones</div>
-      <div class="muted small">Add / Remove Zones</div>
+      <div class="muted small">Manage your areas</div>
     </div>
 
     <div class="row">
       <input id="zoneNew" placeholder="Add a zone (e.g., Frisco)" />
-      <button class="btn goldbtn" id="btnAddZone" type="button">➕</button>
+      <button class="btn goldbtn" id="btnAddZone" type="button">Add Zone</button>
     </div>
 
     <div id="zonesList" class="chips" style="margin-top:12px;"></div>
+    <div class="zone-remove-row"><input id="zoneRemoveName" placeholder="Exact zone name to remove" aria-label="Exact zone name to remove" autocomplete="off" /><button id="btnRemoveZone" class="btn dangerbtn" type="button">Remove Zone</button></div>
+    <div id="zoneRemoveStatus" class="muted small" aria-live="polite"></div>
     <div class="muted tiny" style="margin-top:8px;">Removing a zone hides it from the dropdown (old sessions keep their zone name).</div>
   </section>
 
   <!-- Session Form -->
-  <section class="card" style="margin-top:14px;">
+  <section class="card" id="sessionFormSection" style="margin-top:14px;">
     <div class="card-header">
       <div>
         <div class="section-h" id="formTitle">New Sesh</div>
@@ -172,7 +176,7 @@
     </div>
   </section>
 
-  <h2 class="section-title">Weekly Seshs</h2>
+  <h2 class="section-title" id="weeklySessionsHeading">Weekly Seshs</h2>
   <div id="sessionsList" class="list"></div>
 
 </main>
