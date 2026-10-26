@@ -58,7 +58,7 @@ async function load(){
   if(!profile?.is_owner){notice("Access denied. Owner permissions required.","bad");return}
   const [{data:people,error:pe},{data:logs,error:le}]=await Promise.all([supabase.from("driver_profiles").select("*").order("created_at",{ascending:false}),supabase.from("driver_sessions").select("driver_id,profit,start_time,end_time,orders")]);
   if(pe||le)throw pe||le;drivers=people||[];sessions=logs||[];
-  if(!supportView)supportView=initAdminSupport(supabase,$,el,drivers);await supportView.refresh();
+  if(!supportView)supportView=initAdminSupport(supabase,$,el,()=>drivers);await supportView.refresh();
   const {data:audits,error:auditError}=await supabase.from("import_audit_events").select("*").eq("account_mismatch",true).order("created_at",{ascending:false}).limit(100);
   if(auditError)throw auditError;flags=audits||[];
   $("metrics").hidden=false;$("roster").hidden=false;notice("● SYSTEM ONLINE  /  Last refreshed "+new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}));render();
