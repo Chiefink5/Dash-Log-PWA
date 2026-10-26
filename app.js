@@ -687,7 +687,7 @@ function renderWeekPicker() {
       activeWeekStart = ws;
       weekPicker.classList.add("hidden");
       // Set chip label to match selection
-      weekChip.textContent = (ws === weekStartMs(new Date())) ? "↗ This Week" : "↗ Selected Week";
+      const title=document.getElementById("weekTitle");if(title)title.textContent=(ws === weekStartMs(new Date()))?"This Week":"Selected Week";
       render();
     });
 
