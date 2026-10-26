@@ -1,3 +1,4 @@
+import {setupTimeline} from "./timeline.js";
 import {supabase} from "./auth.js";
 import {syncDriverData,removeCloudSession} from "./cloud-sync.js";
 import {
@@ -924,7 +925,7 @@ async function main() {
   zoneNew.addEventListener("keydown", (e) => { if (e.key === "Enter") handleAddZone(); });
 
   // Week picker
-  weekChip.addEventListener("click", () => weekPicker.classList.toggle("hidden"));
+  setupTimeline({getWeeks:getWeeksAvailable,getTotals:computeWeekTotals,formatWeek:weekRangeLabel,weekNumber:isoWeekNumber,formatMoney:money,onSelect:(ws)=>{activeWeekStart=ws;document.getElementById("weekTitle").textContent=ws===weekStartMs(new Date())?"This Week":"Selected Week";render()}});
   weekPickerClose.addEventListener("click", () => weekPicker.classList.add("hidden"));
 
   // Draft buttons
