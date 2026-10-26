@@ -6,7 +6,7 @@ let currentUser=null;
 const status=message=>$("supportStatus").textContent=message;
 async function user(){if(currentUser)return currentUser;const {data:{user},error}=await supabase.auth.getUser();if(error||!user)throw Error("Sign in to send a report.");return currentUser=user}
 async function listTickets(){
- const u=await user(),{data,error}=await supabase.from("support_tickets").select("id,ticket_number,subject,category,status,created_at").eq("user_id",u.id).order("created_at",{ascending:false}).limit(100);
+ const u=await user(),{data,error}=await supabase.from("support_tickets").select("id,ticket_number,subject,description,category,status,created_at").eq("user_id",u.id).order("created_at",{ascending:false}).limit(100);
  if(error)throw error;
  const box=$("supportTickets");box.replaceChildren();
  if(!data.length)box.append(node("p","muted","No support tickets yet."));
@@ -16,7 +16,7 @@ async function thread(t){
  $("supportThread").classList.remove("hidden");$("supportTickets").classList.add("hidden");
  const box=$("supportThread");box.replaceChildren();
  const back=node("button","btn","Back to Tickets");back.onclick=()=>{box.classList.add("hidden");$("supportTickets").classList.remove("hidden");listTickets().catch(e=>status(e.message))};
- box.append(back,node("h3","", "#"+t.ticket_number+" · "+t.subject),node("p","muted","Status: "+t.status.replaceAll("_"," ")));
+ box.append(back,node("h3","", "#"+t.ticket_number+" · "+t.subject),node("p","muted","Status: "+t.status.replaceAll("_"," ")),node("p","",t.description||""));
  const {data:msgs,error}=await supabase.from("support_messages").select("author_id,body,created_at").eq("ticket_id",t.id).order("created_at");if(error)throw error;
  for(const m of msgs){const n=node("div","support-message",m.body);n.prepend(node("small","",m.author_id===currentUser.id?"You · "+fmt(m.created_at):"Support · "+fmt(m.created_at)));box.append(n)}
  const {data:attachments}=await supabase.from("support_attachments").select("object_path").eq("ticket_id",t.id);
@@ -37,7 +37,7 @@ export function initSupport(){
    if(file&&(file.size>5242880||!["image/png","image/jpeg","image/webp"].includes(file.type)))throw Error("Screenshot must be PNG, JPG or WebP under 5 MB.");
    const {data:t,error}=await supabase.from("support_tickets").insert({user_id:u.id,category:$("supportCategory").value,subject:$("supportSubject").value.trim(),description:$("supportDescription").value.trim(),app_version:"dashlog-pwa-support-v1"}).select("id,ticket_number").single();if(error)throw error;
    if(file){const path=u.id+"/"+t.id+"/"+crypto.randomUUID()+"."+({ "image/png":"png","image/jpeg":"jpg","image/webp":"webp"}[file.type]);const upload=await supabase.storage.from("dashlog-support").upload(path,file,{contentType:file.type});if(upload.error)status("Ticket created, but screenshot upload failed: "+upload.error.message);else{const link=await supabase.from("support_attachments").insert({ticket_id:t.id,uploader_id:u.id,object_path:path});if(link.error)status("Ticket created, but screenshot linking failed: "+link.error.message)}}
-   $("supportForm").reset();status("Ticket #"+t.ticket_number+" submitted. You can track it under My Tickets.");$("supportListTab").click();
+   $("supportForm").reset();$("supportListTab").click();status("Ticket #"+t.ticket_number+" submitted. You can track it under My Tickets.");
   }catch(err){status("Unable to submit: "+err.message)}finally{button.disabled=false}
  };
 }
