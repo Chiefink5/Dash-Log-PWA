@@ -1,0 +1,51 @@
+/* Theme system: default "Original Dasher" is untouched in styles.css. */
+body[data-dash-theme="gilded"]{
+ --bg:#090b0c;--panel:#151719;--stroke:#55452d;--text:#f8f1e5;--muted:#b9aa94;
+ --green:#dfbd7b;--green2:#ae874c;--gold:#f8dc9b;--gold2:#9e7540;
+ --shadow:0 20px 55px rgba(0,0,0,.56);--radius:24px;
+ font-family:Georgia,"Times New Roman",serif;
+ background:radial-gradient(ellipse 90% 36% at 100% 0%,rgba(182,132,54,.18),transparent 75%),
+ radial-gradient(ellipse 80% 35% at -15% 45%,rgba(185,128,57,.12),transparent 72%),
+ repeating-linear-gradient(125deg,transparent 0 110px,rgba(229,192,115,.015) 111px 112px),
+ #090b0c;
+}
+body[data-dash-theme="gilded"] .topbar{padding-top:30px;padding-bottom:22px;border-bottom:1px solid rgba(204,164,97,.23);position:relative}
+body[data-dash-theme="gilded"] .topbar:after{content:"✦";position:absolute;bottom:-10px;left:50%;color:#d8b46c;background:#0b0d0e;padding:0 14px}
+body[data-dash-theme="gilded"] .brand .title{font:500 clamp(26px,5vw,37px)/1.1 Georgia,serif;letter-spacing:-.7px;color:#f8dfad;text-shadow:0 0 25px rgba(225,178,88,.17)}
+body[data-dash-theme="gilded"] .brand .subtitle{font:italic 13px Georgia,serif;letter-spacing:1px;color:#bd9b68;margin-top:8px}
+body[data-dash-theme="gilded"] .card{background:linear-gradient(142deg,rgba(35,32,28,.94),rgba(16,19,19,.97) 66%);border:1px solid rgba(220,174,102,.34);border-radius:24px;box-shadow:inset 0 1px rgba(255,235,182,.09),0 22px 50px rgba(0,0,0,.4)}
+body[data-dash-theme="gilded"] .card:after{content:"";pointer-events:none;position:absolute;inset:6px;border:1px solid rgba(223,179,111,.11);border-radius:19px}
+body[data-dash-theme="gilded"] .card.glow:before{background:radial-gradient(380px 190px at 0 0,rgba(231,176,87,.14),transparent 72%),radial-gradient(350px 200px at 100% 100%,rgba(218,155,74,.10),transparent 72%)}
+body[data-dash-theme="gilded"] .section-h,body[data-dash-theme="gilded"] .section-title{font:500 25px Georgia,serif;letter-spacing:.1px;color:#f6dfb1}
+body[data-dash-theme="gilded"] .section-title{margin-top:30px}
+body[data-dash-theme="gilded"] .stat-value{font:500 clamp(29px,5vw,39px) Georgia,serif;color:#f7dca4}
+body[data-dash-theme="gilded"] .stat-label{font:italic 13px Georgia,serif;letter-spacing:.3px}
+body[data-dash-theme="gilded"] .stat-grid{gap:10px}
+body[data-dash-theme="gilded"] .stat{padding:12px 8px;border-left:1px solid rgba(211,172,104,.16)}
+body[data-dash-theme="gilded"] .stat:first-child{border-left:0}
+body[data-dash-theme="gilded"] .icon-btn,body[data-dash-theme="gilded"] .btn,body[data-dash-theme="gilded"] .chip,body[data-dash-theme="gilded"] .small-btn,body[data-dash-theme="gilded"] .xbtn{border-radius:13px;border:1px solid rgba(209,168,101,.42);background:linear-gradient(150deg,#2c281f,#141717);color:#f6dfb1;box-shadow:inset 0 1px rgba(255,229,166,.09);font-family:Georgia,serif}
+body[data-dash-theme="gilded"] .goldbtn,body[data-dash-theme="gilded"] .greenbtn,body[data-dash-theme="gilded"] .chip-gold{background:linear-gradient(125deg,#ffe4a5,#bc9254 52%,#e8c17e);border-color:#c9a66b;color:#24190d}
+body[data-dash-theme="gilded"] .badge{color:#f3d49b;border-color:rgba(218,175,104,.4);background:#30271b;font-family:Georgia,serif}
+body[data-dash-theme="gilded"] input,body[data-dash-theme="gilded"] select{background:#101314;border:1px solid rgba(215,177,109,.29);border-radius:12px;color:#f8f1e5;font:15px Georgia,serif}
+body[data-dash-theme="gilded"] input:focus,body[data-dash-theme="gilded"] select:focus{border-color:#e9c480;box-shadow:0 0 0 3px rgba(232,186,108,.11)}
+body[data-dash-theme="gilded"] .field label{color:#d2b98e;font:italic 13px Georgia,serif}
+body[data-dash-theme="gilded"] .zone-chip,body[data-dash-theme="gilded"] .session-card,body[data-dash-theme="gilded"] .dropdown,body[data-dash-theme="gilded"] .modal-card{background:linear-gradient(140deg,#29261f,#121616);border:1px solid rgba(215,172,104,.32);border-radius:18px}
+body[data-dash-theme="gilded"] .modal-title,body[data-dash-theme="gilded"] .dropdown-title{color:#f4d69d;font:500 23px Georgia,serif}
+body[data-dash-theme="gilded"] .session-card{padding:19px}
+body[data-dash-theme="gilded"] .week-opt{background:#201e1a;border-color:rgba(214,169,95,.28);color:#e7c993}
+body[data-dash-theme="gilded"] .warn{background:#33281b;color:#f7d99b;border-color:#8f6d38}
+body[data-dash-theme="gilded"] .divider{background:rgba(219,171,100,.25)}
+body[data-dash-theme="gilded"] .container{padding-top:25px}
+.theme-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
+.theme-choice{padding:0;border-radius:17px;overflow:hidden;border:2px solid #4c5048;background:#121814;text-align:left;color:#f4f5ef;cursor:pointer;min-width:0}
+.theme-choice[aria-pressed="true"]{border-color:#f2c14e;box-shadow:0 0 0 3px rgba(242,193,78,.16)}
+.theme-preview{height:88px;padding:13px;display:flex;flex-direction:column;gap:8px}
+.theme-preview .preview-line{width:65%;height:9px;border-radius:9px;background:currentColor;opacity:.65}
+.theme-preview .preview-blocks{display:flex;gap:7px;flex:1}
+.theme-preview .preview-blocks i{display:block;flex:1;border:1px solid currentColor;border-radius:8px;opacity:.7}
+.theme-preview.original{background:radial-gradient(at top left,#194b38,#09100d);color:#43dfa0}
+.theme-preview.gilded{background:radial-gradient(at top right,#6c4b28,#101316 78%);color:#edcb88}
+.theme-choice strong,.theme-choice small{display:block;padding:0 12px}
+.theme-choice strong{font-size:13px;padding-top:10px}
+.theme-choice small{font-size:11px;color:#aaa;padding-top:3px;padding-bottom:12px}
+@media(max-width:480px){body[data-dash-theme="gilded"] .topbar{gap:10px}body[data-dash-theme="gilded"] .brand .title{font-size:25px}body[data-dash-theme="gilded"] .stat{padding:8px 3px}body[data-dash-theme="gilded"] .stat-value{font-size:28px}body[data-dash-theme="gilded"] .stat-label{font-size:11px}}
