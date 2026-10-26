@@ -355,6 +355,13 @@ async function refreshZones() {
   }
 }
 
+async function handleRemoveZone() {
+ const input=document.getElementById("zoneRemoveName"),status=document.getElementById("zoneRemoveStatus");
+ const name=input.value.trim(),found=zonesActive.find(z=>z.name===name);
+ if(!found){status.textContent="Enter the exact spelling and capitalization of a listed zone.";return}
+ if(!confirm("Remove "+found.name+" from available zones? Past sessions remain."))return;
+ found.active=0;await updateZone(db,found);input.value="";status.textContent=found.name+" removed. Past sessions remain.";await refreshZones();
+}
 async function handleAddZone() {
   const name = (zoneNew.value || "").trim();
   if (!name) return;
@@ -913,6 +920,7 @@ async function main() {
 
   // Wire Zones
   btnAddZone.addEventListener("click", handleAddZone);
+  document.getElementById("btnRemoveZone").addEventListener("click",handleRemoveZone);
   zoneNew.addEventListener("keydown", (e) => { if (e.key === "Enter") handleAddZone(); });
 
   // Week picker
