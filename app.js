@@ -69,7 +69,7 @@ function makeLocalDateTime(dateStr, timeStr) {
 }
 function sessionDateLabel(startMs) {
   const d = new Date(startMs);
-  return d.toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric" });
+  return d.toLocaleDateString("en-US", { month:"2-digit", day:"2-digit", year:"numeric" });
 }
 
 /* -------------------- Week logic (Monday start) -------------------- */
@@ -85,7 +85,7 @@ function weekRangeLabel(weekStartMsVal) {
   const s = new Date(weekStartMsVal);
   const e = new Date(weekStartMsVal);
   e.setDate(e.getDate() + 6);
-  const fmt = (d) => d.toLocaleDateString(undefined, { month:"2-digit", day:"2-digit", year:"2-digit" });
+  const fmt = (d) => d.toLocaleDateString("en-US", { month:"2-digit", day:"2-digit", year:"numeric" });
   return `${fmt(s)} - ${fmt(e)}`;
 }
 // ISO week number
@@ -350,14 +350,7 @@ async function refreshZones() {
   for (const z of zonesActive) {
     const chip = document.createElement("div");
     chip.className = "zone-chip";
-    chip.innerHTML = `<span>${z.name}</span><button class="zone-x" title="Remove zone" aria-label="Remove zone">✕</button>`;
-    chip.querySelector("button").addEventListener("click", async () => {
-      const ok = confirm(`Remove "${z.name}" from dropdown? (Old sessions keep name)`);
-      if (!ok) return;
-      z.active = 0;
-      await updateZone(db, z);
-      await refreshZones();
-    });
+    const label=document.createElement("span");label.textContent=z.name;chip.appendChild(label);
     zonesListEl.appendChild(chip);
   }
 }
