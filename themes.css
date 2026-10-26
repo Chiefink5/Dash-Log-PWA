@@ -89,3 +89,18 @@ html[data-dash-theme="gilded"] body .zones-accordion #btnAddZone{background:line
 html[data-dash-theme="gilded"] body .zones-accordion #btnRemoveZone{background:linear-gradient(145deg,#50302d,#301b1b);color:#ffb3a5;border-color:#835047}
 html[data-dash-theme="gilded"] body .zones-accordion .zone-chip{font:500 14px Georgia,serif;border-color:rgba(215,172,104,.35);background:linear-gradient(145deg,#30291f,#191a18);color:#f8dca4}
 @media(max-width:480px){.zones-accordion .row{flex-wrap:wrap}.zones-accordion .row button,.zones-accordion .zone-remove-row button{width:100%}}
+
+/* Shared account header and settings actions */
+.topbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+.account-role-badge{display:inline-flex;align-items:center;justify-content:center;min-height:39px;padding:8px 14px;border:1px solid var(--gold2);border-radius:999px;background:linear-gradient(130deg,rgba(242,193,78,.16),rgba(0,0,0,.16));color:var(--gold);font:800 12px system-ui,sans-serif;letter-spacing:.25px;white-space:nowrap}
+.topbar-actions #btnSettings{font:800 12px system-ui,sans-serif;padding:10px 14px;min-height:39px;white-space:nowrap}
+.settings-account{border:1px solid var(--stroke);background:rgba(0,0,0,.13);border-radius:14px;padding:14px}
+.settings-account-email{font-size:14px;font-weight:800;overflow-wrap:anywhere;margin:7px 0}
+#cloudSyncStatus{margin-top:8px}
+.settings-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.settings-action-grid .btn{min-height:45px;white-space:normal}
+.settings-action-grid #accountLogout{grid-column:1/-1;border-color:rgba(255,107,107,.45);color:#ffb2b2}
+html[data-dash-theme="gilded"] body .account-role-badge{font:600 13px Georgia,serif;color:#f6dfb1;border-color:#bd9356;background:linear-gradient(130deg,#3c2e1d,#191b1a)}
+html[data-dash-theme="gilded"] body .topbar-actions #btnSettings{font:600 13px Georgia,serif}
+html[data-dash-theme="gilded"] body .settings-account{border-color:rgba(220,174,102,.3);background:linear-gradient(145deg,#2a251e,#141818)}
+@media(max-width:520px){.topbar{align-items:center;gap:10px}.topbar-actions{gap:7px}.account-role-badge{padding:7px 10px;font-size:11px;min-height:35px}.topbar-actions #btnSettings{padding:8px 10px;min-height:35px}.brand{min-width:0}.brand .title{font-size:clamp(19px,5vw,28px)}html[data-dash-theme="gilded"] body .brand .title{font-size:clamp(20px,5vw,25px)}}
