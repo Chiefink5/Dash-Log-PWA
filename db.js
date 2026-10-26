@@ -1,7 +1,7 @@
 // db.js — IndexedDB storage for Gig Log (zones + sessions)
 // DB v3 adds a "meta" store for settings + draft (optional), but we also use localStorage.
 
-const DB_NAME = "giglog-db";
+const DB_NAME = "giglog-db-" + (window.__dashlogUserId || "legacy");
 const DB_VERSION = 3;
 
 function openDB() {
