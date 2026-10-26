@@ -1,5 +1,5 @@
 export function initAdminSupport(supabase,$,el,drivers){
- let tickets=[],messages=[];
+ let tickets=[],messages=[];let poll=null;
  const date=d=>new Date(d).toLocaleDateString("en-US",{month:"2-digit",day:"2-digit",year:"numeric"});
  const stat=$("supportCount"),list=$("adminTicketList"),filter=$("supportFilter");
  async function refresh(){
@@ -20,6 +20,7 @@ export function initAdminSupport(supabase,$,el,drivers){
  async function loadThread(t,box){
   box.replaceChildren();box.append(el("p","",t.description));
   const {data:msgs,error}=await supabase.from("support_messages").select("*").eq("ticket_id",t.id).order("created_at");if(error){box.append(el("p","",error.message));return}
+  const unread=(msgs||[]).filter(m=>m.author_id===t.user_id&&!m.read_at).map(m=>m.id);if(unread.length){const {error:markError}=await supabase.from("support_messages").update({read_at:new Date().toISOString()}).in("id",unread);if(markError)console.warn(markError.message)}
   for(const m of msgs||[]){const item=el("div","support-message");item.append(el("small","",m.author_id===t.user_id?"Driver · "+date(m.created_at):"Support · "+date(m.created_at)),el("p","",m.body));box.append(item)}
   const {data:attachments}=await supabase.from("support_attachments").select("object_path").eq("ticket_id",t.id);
   for(const a of attachments||[]){const b=el("button","action","View Screenshot");b.onclick=async()=>{const {data,error}=await supabase.storage.from("dashlog-support").createSignedUrl(a.object_path,60);if(error)alert(error.message);else window.open(data.signedUrl,"_blank","noopener")};box.append(b)}
