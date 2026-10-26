@@ -23,9 +23,8 @@
   </div>
 
   <div class="topbar-actions">
-    <button id="btnImport" class="icon-btn" title="Import" aria-label="Import">⬆️</button>
-    <button id="btnExport" class="icon-btn" title="Export" aria-label="Export">⬇️</button>
-    <button id="btnSettings" class="icon-btn" title="Settings" aria-label="Settings">⚙️</button>
+    <span id="accountRoleBadge" class="account-role-badge">Dasher</span>
+    <button id="btnSettings" class="icon-btn" title="Settings" aria-label="Settings" type="button">Settings</button>
   </div>
 </header>
 
@@ -236,6 +235,13 @@
       <button id="settingsClose" class="xbtn" type="button" aria-label="Close">✕</button>
     </div>
 
+    <div class="settings-account">
+      <div class="muted small">Signed-in account</div>
+      <div id="settingsAccountEmail" class="settings-account-email"></div>
+      <div id="settingsAccountRole" class="muted small"></div>
+      <div id="cloudSyncStatus" class="muted small" aria-live="polite"></div>
+    </div>
+    <div class="divider"></div>
     <div class="field">
       <label>Appearance / Layout</label>
       <div class="muted small">Choose your look. All logging features and data stay the same.</div>
@@ -252,8 +258,15 @@
 
     <div class="divider"></div>
 
+    <div class="field"><label>Data &amp; Account</label><div class="muted small">Back up or restore your sessions.</div></div>
+    <div class="settings-action-grid">
+      <button id="btnImport" class="btn" type="button">Import Data</button>
+      <button id="btnExport" class="btn goldbtn" type="button">Export Data</button>
+      <button id="accountLogout" class="btn" type="button">Sign Out</button>
+    </div>
+    <div class="divider"></div>
     <div class="row" style="flex-wrap:wrap;">
-      <button id="btnImportNow" class="btn goldbtn" type="button">Import Data</button>
+      
       <button id="btnWipeAll" class="btn dangerbtn" type="button">Wipe All Data</button>
     </div>
 
