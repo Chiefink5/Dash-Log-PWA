@@ -250,6 +250,16 @@
   </div>
 </div>
 
-<script type="module" src="/auth.js"></script>
+<div id="bootScreen" style="position:fixed;inset:0;z-index:100000;background:#0b0f0b;color:#f3e5bd;display:flex;align-items:center;justify-content:center;padding:24px;font:16px system-ui"><div style="max-width:440px;width:100%;text-align:center"><h2>Dash Log</h2><p id="bootStatus">Loading your account…</p><button id="bootRetry" style="display:none;padding:12px 24px" onclick="location.reload()">Retry</button></div></div>
+<script type="module">
+  try {
+    await import("/auth.js?v=12");
+    document.getElementById("bootScreen")?.remove();
+  } catch (error) {
+    console.error("Dash Log startup failed",error);
+    document.getElementById("bootStatus").textContent="Could not load the sign-in system. Check your connection, then retry. ("+String(error.message||error)+")";
+    document.getElementById("bootRetry").style.display="inline-block";
+  }
+</script>
 </body>
 </html>
