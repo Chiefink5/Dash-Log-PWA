@@ -49,3 +49,19 @@ html[data-dash-theme="gilded"] body .container{padding-top:25px}
 .theme-choice strong{font-size:13px;padding-top:10px}
 .theme-choice small{font-size:11px;color:#aaa;padding-top:3px;padding-bottom:12px}
 @media(max-width:480px){html[data-dash-theme="gilded"] body .topbar{gap:10px}html[data-dash-theme="gilded"] body .brand .title{font-size:25px}html[data-dash-theme="gilded"] body .stat{padding:8px 3px}html[data-dash-theme="gilded"] body .stat-value{font-size:28px}html[data-dash-theme="gilded"] body .stat-label{font-size:11px}}
+
+/* Shared weekly summary layout — applies to every theme. */
+.weekly-summary{overflow:visible!important}
+.weekly-heading{text-align:center;display:flex;flex-direction:column;align-items:center;gap:7px;padding:6px 4px 18px;position:relative;z-index:1}
+.weekly-title{font-weight:900;font-size:19px;letter-spacing:.2px;color:var(--gold)}
+.weekly-heading #weekRange{font-size:13px;line-height:1.5;white-space:normal}
+.weekly-summary .stat-grid{position:relative;z-index:1}
+.timeline-action{display:flex;justify-content:flex-end;margin-top:18px;position:relative;z-index:2}
+.timeline-action #weekChip{min-width:145px;padding:12px 18px;font-size:13px;white-space:nowrap}
+.weekly-summary .dropdown{position:relative;z-index:5}
+html[data-dash-theme="gilded"] body .weekly-title{font:500 25px Georgia,serif;color:#f8dca4}
+html[data-dash-theme="gilded"] body .weekly-heading #weekRange{font:14px Georgia,serif;letter-spacing:.2px}
+/* Replace ornate center separator with a clean continuous rule. */
+html[data-dash-theme="gilded"] body .topbar:after{content:none!important;display:none!important}
+html[data-dash-theme="gilded"] body .topbar{border-bottom:1px solid rgba(204,164,97,.28)!important}
+@media(max-width:680px){.weekly-summary .stat-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important}.weekly-summary .stat{min-width:0}.weekly-summary .stat-value{overflow-wrap:anywhere;font-size:clamp(20px,5vw,28px)}.weekly-heading #weekRange{font-size:12px}}
