@@ -4,7 +4,7 @@ export function initAdminSupport(supabase,$,el,drivers){
  const stat=$("supportCount"),list=$("adminTicketList"),filter=$("supportFilter");
  async function refresh(){
   const {data,error}=await supabase.from("support_tickets").select("*").order("created_at",{ascending:false}).limit(200);if(error)throw error;tickets=data||[];
-  stat.textContent="/ "+tickets.filter(t=>!["resolved","closed"].includes(t.status)).length+" open";
+  const {data:unread,error:ue}=await supabase.from("support_messages").select("ticket_id,author_id").is("read_at",null);if(ue)throw ue;const owners=new Map(tickets.map(t=>[t.id,t.user_id]));const unreadCount=(unread||[]).filter(m=>owners.get(m.ticket_id)===m.author_id).length;stat.textContent="/ "+tickets.filter(t=>!["resolved","closed"].includes(t.status)).length+" open · "+unreadCount+" unread";
   render();
  }
  function render(){
