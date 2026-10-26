@@ -1091,6 +1091,11 @@ btnSendWebhookJson.addEventListener("click", async () => {
 
   // Initial render
   await render();
+  const cloudStatus=document.createElement("div");cloudStatus.id="cloudSyncStatus";cloudStatus.style="font:12px system-ui;padding:8px 14px;color:#f3e5bd;background:#172019";cloudStatus.textContent="Cloud backup connecting…";document.body.prepend(cloudStatus);
+  await syncAndRefresh();
+  window.addEventListener("online",syncAndRefresh);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)syncAndRefresh()});
+  setInterval(()=>{if(!document.hidden)syncAndRefresh()},60000);
 }
 
 main();
