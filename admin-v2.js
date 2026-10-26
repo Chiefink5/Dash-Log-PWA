@@ -1,3 +1,4 @@
+import {initAdminSupport} from "./admin-support.js";
 import {createClient} from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 const supabase=createClient("https://khcniybqzaaklmyrjolg.supabase.co","sb_publishable_xbP_mXXRNTNsCc8qqrGNQg_p6r-FZIa");
 const $=id=>document.getElementById(id);
@@ -5,6 +6,7 @@ const fmt=n=>Number(n||0).toLocaleString("en-US",{style:"currency",currency:"USD
 const date=d=>d?new Date(d).toLocaleDateString("en-US"):"—";
 $("year").textContent=new Date().getFullYear();
 let drivers=[],sessions=[],flags=[];
+
 function notice(message,type="good"){$("adminStatus").textContent=message;$("adminStatus").className="notice "+type}
 const el=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e};
 function access(p){return p.is_owner||p.access_status==="complimentary"||(p.access_status==="trial"&&Date.parse(p.trial_ends_at)>Date.now())||(p.access_status==="active"&&Date.parse(p.subscription_expires_at)>Date.now())}
@@ -56,6 +58,7 @@ async function load(){
   if(!profile?.is_owner){notice("Access denied. Owner permissions required.","bad");return}
   const [{data:people,error:pe},{data:logs,error:le}]=await Promise.all([supabase.from("driver_profiles").select("*").order("created_at",{ascending:false}),supabase.from("driver_sessions").select("driver_id,profit,start_time,end_time,orders")]);
   if(pe||le)throw pe||le;drivers=people||[];sessions=logs||[];
+  const supportView=initAdminSupport(supabase,$,el,drivers);await supportView.refresh();
   const {data:audits,error:auditError}=await supabase.from("import_audit_events").select("*").eq("account_mismatch",true).order("created_at",{ascending:false}).limit(100);
   if(auditError)throw auditError;flags=audits||[];
   $("metrics").hidden=false;$("roster").hidden=false;notice("● SYSTEM ONLINE  /  Last refreshed "+new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}));render();
