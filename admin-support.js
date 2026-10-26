@@ -5,7 +5,19 @@ export function initAdminSupport(supabase,$,el,getDrivers){
  async function refresh(){
   const {data,error}=await supabase.from("support_tickets").select("*").order("created_at",{ascending:false}).limit(200);if(error)throw error;tickets=data||[];
   const {data:unread,error:ue}=await supabase.from("support_messages").select("ticket_id,author_id").is("read_at",null);if(ue)throw ue;const owners=new Map(tickets.map(t=>[t.id,t.user_id]));const unreadCount=(unread||[]).filter(m=>owners.get(m.ticket_id)===m.author_id).length;stat.textContent="/ "+tickets.filter(t=>!["resolved","closed"].includes(t.status)).length+" open · "+unreadCount+" unread";
-  render();
+  await loadPublic();render();
+ }
+ async function loadPublic(){
+  const box=$("publicSupportList");if(!box)return;box.replaceChildren();
+  const {data,error}=await supabase.from("public_support_requests").select("*").order("created_at",{ascending:false}).limit(100);
+  if(error){box.append(el("div","empty",error.message));return}
+  if(!data.length)box.append(el("div","empty","No login help requests."));
+  for(const request of data){
+   const card=el("article","driver");
+   card.append(el("h3","",request.subject),el("div","subtext",request.email+" · "+request.status+" · "+date(request.created_at)),el("p","",request.description));
+   const mail=el("a","action","Reply by email");mail.href="mailto:"+encodeURIComponent(request.email)+"?subject="+encodeURIComponent("Dash Log Support: "+request.subject);card.append(mail);
+   const select=el("select");for(const s of ["new","open","resolved","closed"]){const option=el("option","",s);option.value=s;select.append(option)}select.value=request.status;select.onchange=async()=>{const {error}=await supabase.from("public_support_requests").update({status:select.value}).eq("id",request.id);if(error)alert(error.message)};card.append(select);box.append(card);
+  }
  }
  function render(){
   list.replaceChildren();const items=tickets.filter(t=>!filter.value||t.status===filter.value);
