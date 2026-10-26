@@ -26,10 +26,15 @@ function render(){
   const card=el("article","driver"),top=el("div","driver-top"),identity=el("div","driver-identity"),avatar=el("div","avatar",(p.display_name||p.email||"?").slice(0,1).toUpperCase()),name=el("div"),title=el("h3","",p.display_name||p.email),subtitle=el("div","subtext",(p.display_name?p.email+" · ":"")+"Joined "+date(p.created_at)+(p.is_owner?" · OWNER":""));
   name.append(title,subtitle);identity.append(avatar,name);
   const badge=el("span","badge "+p.access_status,p.is_owner?"OWNER":p.access_status);top.append(identity,badge);card.append(top);
+  card.classList.add("collapsed-driver");card.setAttribute("tabindex","0");card.setAttribute("role","button");card.setAttribute("aria-expanded","false");card.setAttribute("aria-label","View details for "+(p.email||"driver"));
+  const details=el("div","driver-details");details.hidden=true;
+  const toggle=()=>{details.hidden=!details.hidden;card.classList.toggle("expanded-driver",!details.hidden);card.setAttribute("aria-expanded",String(!details.hidden))};
+  top.addEventListener("click",toggle);card.addEventListener("keydown",e=>{if(e.target===card&&(e.key==="Enter"||e.key===" ")){e.preventDefault();toggle()}});
+  const hint=el("span","driver-hint","VIEW DETAILS +");top.append(hint);
   const stats=el("div","driver-stats");
   for(const [label,value] of [["SESSIONS",logs.length],["EARNINGS",fmt(total)],["HOURS",hours.toFixed(1)],["AVG / HOUR",hours?fmt(total/hours):"—"]]){const item=el("div");item.append(el("span","",label),el("strong","",String(value)));stats.append(item)}
-  card.append(stats);
-  const info=el("div","subtext","Trial ends: "+date(p.trial_ends_at)+" · Last active: "+date(p.last_seen_at));info.style.marginTop="13px";card.append(info);
+  details.append(stats);
+  const info=el("div","subtext","Trial ends: "+date(p.trial_ends_at)+" · Last active: "+date(p.last_seen_at));info.style.marginTop="13px";details.append(info);
   if(!p.is_owner){
    const actions=el("div","driver-actions");
    for(const [label,status,days] of [["✓ Complimentary","complimentary",0],["+ 14 days","trial",14],["⛔ Suspend","suspended",0]]){
@@ -38,8 +43,8 @@ function render(){
      const {error}=await supabase.rpc("dashlog_manage_driver",{target_id:p.id,new_status:status,new_trial_ends_at:end});
      btn.disabled=false;if(error){alert(error.message);return}p.access_status=status;if(end)p.trial_ends_at=end;render();notice("Access updated for "+p.email)};
     actions.append(btn)
-   }card.append(actions)
-  }list.append(card)
+   }details.append(actions)
+  }card.append(details);list.append(card)
  }
 }
 async function load(){
