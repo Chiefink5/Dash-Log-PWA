@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.1";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 export const supabase=createClient("https://khcniybqzaaklmyrjolg.supabase.co","sb_publishable_xbP_mXXRNTNsCc8qqrGNQg_p6r-FZIa");
 const root=document.createElement("div");root.id="accountGate";root.style="position:fixed;inset:0;background:#0b0f0b;color:#f3e5bd;z-index:99999;display:grid;place-items:center;padding:20px;font-family:system-ui";
 document.body.append(root);
