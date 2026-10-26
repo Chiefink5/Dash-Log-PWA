@@ -1,3 +1,4 @@
+import {initSupport} from "./support.js";
 import {setupTimeline} from "./timeline.js";
 import {supabase} from "./auth.js";
 import {syncDriverData,removeCloudSession} from "./cloud-sync.js";
@@ -1101,6 +1102,7 @@ btnSendWebhookJson.addEventListener("click", async () => {
     setStatus(settingsStatus, "Wiped. Fresh start.");
   });
 
+  initSupport();
   // Theme selection: appearance only, never modifies stored sessions.
   const themeButtons=document.querySelectorAll("[data-theme-choice]");
   function setTheme(theme){const selected=theme==="gilded"?"gilded":"original";document.documentElement.dataset.dashTheme=selected;localStorage.setItem("dashlog_theme_v1",selected);themeButtons.forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.themeChoice===selected)));}
