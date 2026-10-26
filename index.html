@@ -66,11 +66,9 @@
   <section id="timelinePage" class="timeline-page hidden" aria-label="Weekly timeline"><div class="timeline-page-header"><button id="timelineBack" class="btn" type="button">← Back to Dashboard</button><h2>Weekly Timeline</h2><p class="muted">Select a week to view its sessions. Ten weeks per page.</p></div><div id="timelineWeeks" class="timeline-weeks"></div><div class="timeline-pagination"><button id="timelinePrev" class="btn" type="button">Previous</button><span id="timelinePageCount"></span><button id="timelineNext" class="btn" type="button">Next</button></div></section>
 
   <!-- Zones -->
-  <section class="card" id="zonesSection" style="margin-top:14px;">
-    <div class="card-header">
-      <div class="section-h">Zones</div>
-      <div class="muted small">Manage your areas</div>
-    </div>
+  <section class="zones-accordion" id="zonesSection">
+    <button class="zones-toggle" id="zonesToggle" type="button" aria-expanded="false" aria-controls="zonesContent"><span>Zones</span><span class="zones-toggle-right">Manage your areas <span class="zones-chevron" aria-hidden="true">⌄</span></span></button>
+    <div id="zonesContent" class="zones-content" hidden>
 
     <div class="row">
       <input id="zoneNew" placeholder="Add a zone (e.g., Frisco)" />
@@ -81,6 +79,7 @@
     <div class="zone-remove-row"><input id="zoneRemoveName" placeholder="Exact zone name to remove" aria-label="Exact zone name to remove" autocomplete="off" /><button id="btnRemoveZone" class="btn dangerbtn" type="button">Remove Zone</button></div>
     <div id="zoneRemoveStatus" class="muted small" aria-live="polite"></div>
     <div class="muted tiny" style="margin-top:8px;">Removing a zone hides it from the dropdown (old sessions keep their zone name).</div>
+    </div>
   </section>
 
   <!-- Session Form -->
@@ -277,5 +276,6 @@
     document.getElementById("bootRetry").style.display="inline-block";
   }
 </script>
+<script>document.getElementById("zonesToggle").addEventListener("click",function(){const panel=document.getElementById("zonesContent");panel.hidden=!panel.hidden;this.setAttribute("aria-expanded",String(!panel.hidden))});</script>
 </body>
 </html>
