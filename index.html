@@ -11,6 +11,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/themes.css" />
+  <script>try{document.documentElement.dataset.dashTheme=localStorage.getItem("dashlog_theme_v1")||"original"}catch(e){}</script>
 </head>
 
 <body>
@@ -230,6 +232,15 @@
       <button id="settingsClose" class="xbtn" type="button" aria-label="Close">✕</button>
     </div>
 
+    <div class="field">
+      <label>Appearance / Layout</label>
+      <div class="muted small">Choose your look. All logging features and data stay the same.</div>
+      <div class="theme-options" id="themeOptions">
+        <button type="button" class="theme-choice" data-theme-choice="original" aria-pressed="true"><div class="theme-preview original"><span class="preview-line"></span><span class="preview-blocks"><i></i><i></i><i></i></span></div><strong>Original Dasher</strong><small>Classic green + gold</small></button>
+        <button type="button" class="theme-choice" data-theme-choice="gilded" aria-pressed="false"><div class="theme-preview gilded"><span class="preview-line"></span><span class="preview-blocks"><i></i><i></i><i></i></span></div><strong>Gilded</strong><small>Elegant flowing gold</small></button>
+      </div>
+    </div>
+    <div class="divider"></div>
     <div class="field">
       <label>Week start</label>
       <div class="muted small">Locked to Monday (matches pay cycle logic).</div>
