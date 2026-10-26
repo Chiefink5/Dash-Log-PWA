@@ -1,4 +1,4 @@
-export function initAdminSupport(supabase,$,el,drivers){
+export function initAdminSupport(supabase,$,el,getDrivers){
  let tickets=[],messages=[];let poll=null;
  const date=d=>new Date(d).toLocaleDateString("en-US",{month:"2-digit",day:"2-digit",year:"numeric"});
  const stat=$("supportCount"),list=$("adminTicketList"),filter=$("supportFilter");
@@ -13,7 +13,7 @@ export function initAdminSupport(supabase,$,el,drivers){
   for(const t of items){
    const card=el("article","driver"),heading=el("button","support-admin-ticket","#"+t.ticket_number+" · "+t.subject);
    heading.type="button";heading.onclick=()=>{const details=card.querySelector(".support-admin-details");details.hidden=!details.hidden;if(!details.hidden)loadThread(t,details)};
-   card.append(heading,el("div","subtext",(drivers.find(d=>d.id===t.user_id)?.email||t.user_id)+" · "+t.status.replaceAll("_"," ")+" · "+date(t.created_at)));
+   card.append(heading,el("div","subtext",(getDrivers().find(d=>d.id===t.user_id)?.email||t.user_id)+" · "+t.status.replaceAll("_"," ")+" · "+date(t.created_at)));
    const details=el("div","support-admin-details");details.hidden=true;card.append(details);list.append(card)
   }
  }
