@@ -64,4 +64,4 @@ async function load(){
   $("metrics").hidden=false;$("roster").hidden=false;notice("● SYSTEM ONLINE  /  Last refreshed "+new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}));render();
  }catch(e){console.error(e);notice("Dashboard error: "+(e.message||e),"bad")}
 }
-$("searchDriver").addEventListener("input",render);$("filterStatus").addEventListener("change",render);$("refresh").addEventListener("click",load);load();
+$("searchDriver").addEventListener("input",render);$("filterStatus").addEventListener("change",render);$("refresh").addEventListener("click",load);load();setInterval(()=>{if(!document.hidden&&supportView)supportView.refresh().catch(console.warn)},45000);document.addEventListener("visibilitychange",()=>{if(!document.hidden&&supportView)supportView.refresh().catch(console.warn)});
