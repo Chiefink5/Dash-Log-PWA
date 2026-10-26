@@ -1102,6 +1102,12 @@ btnSendWebhookJson.addEventListener("click", async () => {
     setStatus(settingsStatus, "Wiped. Fresh start.");
   });
 
+  // Theme selection: appearance only, never modifies stored sessions.
+  const themeButtons=document.querySelectorAll("[data-theme-choice]");
+  function setTheme(theme){const selected=theme==="gilded"?"gilded":"original";document.documentElement.dataset.dashTheme=selected;localStorage.setItem("dashlog_theme_v1",selected);themeButtons.forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.themeChoice===selected)));}
+  themeButtons.forEach(b=>b.addEventListener("click",()=>setTheme(b.dataset.themeChoice)));
+  setTheme(localStorage.getItem("dashlog_theme_v1"));
+
   // Initial render
   await render();
   const cloudStatus=document.createElement("div");cloudStatus.id="cloudSyncStatus";cloudStatus.style="font:12px system-ui;padding:8px 14px;color:#f3e5bd;background:#172019";cloudStatus.textContent="Cloud backup connecting…";document.body.prepend(cloudStatus);
